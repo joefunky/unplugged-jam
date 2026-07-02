@@ -96,6 +96,10 @@ function App() {
   const handleLogin = async (userId) => {
     const user = await mockDb.login(userId);
     if (user) {
+      if (isSupabaseConfigured()) {
+        // OAuth redirect in progress
+        return;
+      }
       setCurrentUser(user);
       setShowAuthModal(false);
       showToast(`UTENTE ${user.display_name.toUpperCase()} ACCEDUTO`, 'success');
@@ -374,7 +378,7 @@ Moderazione
                   textTransform: 'uppercase',
                   fontSize: '0.8rem'
                 }}>
-                  <span>Hai un brano da suonare in spiaggia?</span>
+                  <span>proponi il tuo brano settimanale e vota i tuoi brani preferiti!</span>
                   <button 
                     onClick={() => setActiveTab('propose')} 
                     className="btn-bauhaus"
