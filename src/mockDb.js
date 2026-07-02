@@ -353,8 +353,7 @@ export const mockDb = {
           proposed_by: user.id,
           proposed_by_name: user.display_name,
           player_name: songData.player_name || null,
-          player_instrument: songData.player_name ? songData.player_instrument : null,
-          lyrics_sheet: lyricsSheet
+          player_instrument: songData.player_name ? songData.player_instrument : null
         })
         .select()
         .single();
