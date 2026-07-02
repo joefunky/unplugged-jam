@@ -118,7 +118,7 @@ function App() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Debounced search trigger for Deezer JSONP
+  // Debounced search trigger directly inside Synced Lyrics Database
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -128,14 +128,14 @@ function App() {
     setIsSearching(true);
     const delayDebounceFn = setTimeout(async () => {
       try {
-        const results = await mockDb.searchDeezer(searchQuery);
+        const results = await mockDb.searchSyncedLyrics(searchQuery);
         setSearchResults(results);
       } catch (err) {
         console.error("Search error: ", err);
       } finally {
         setIsSearching(false);
       }
-    }, 400);
+    }, 450);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
@@ -905,7 +905,7 @@ function App() {
               /* Search query */
               <div style={{paddingTop: '10px'}}>
                 <div style={{marginBottom: '16px'}}>
-                  <label className="bauhaus-label">Ricerca brano dal catalogo Deezer</label>
+                  <label className="bauhaus-label">Ricerca brano con testo sincronizzato</label>
                   <input 
                     type="text" 
                     placeholder="DIGITA TITOLO O ARTISTA..." 
@@ -917,7 +917,7 @@ function App() {
 
                 {isSearching && (
                   <div style={{padding: '12px', fontWeight: 'bold', textTransform: 'uppercase'}}>
-                    Caricamento da Deezer...
+                    Ricerca in database testi...
                   </div>
                 )}
 
@@ -927,7 +927,19 @@ function App() {
                       <div 
                         key={track.deezer_id} 
                         className="search-results-item"
-                        onClick={() => setSelectedTrack(track)}
+                        onClick={async () => {
+                          showToast("Caricamento metadati audio...");
+                          const meta = await mockDb.resolveDeezerMetadata(track.title, track.artist);
+                          if (meta) {
+                            setSelectedTrack({
+                              ...track,
+                              cover_url: meta.cover_url,
+                              preview_url: meta.preview_url
+                            });
+                          } else {
+                            setSelectedTrack(track);
+                          }
+                        }}
                       >
                         <strong>{track.title.toUpperCase()}</strong> - {track.artist.toUpperCase()}
                       </div>

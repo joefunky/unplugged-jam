@@ -226,49 +226,96 @@ export default function KaraokeLiveJam({ song, isHost, onClose }) {
         for (const query of queries) {
           try {
             const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
             const res = await fetch(proxyUrl);
             if (res.ok) {
-              const wrapper = await res.json();
-              if (wrapper && wrapper.contents) {
-                const data = JSON.parse(wrapper.contents);
-                if (Array.isArray(data) && data.length > 0) {
-                  const match = data.find(item => item.syncedLyrics);
-                  if (match && match.syncedLyrics) {
-                    // Standard chord injection
-                    const linesLrc = match.syncedLyrics.split('\n');
-                    const chords = ['[LA]', '[MI]', '[RE]', '[SOL]', '[DO]', '[LAm]', '[MIm]', '[SIm]'];
-                    let chordIdx = 0;
-                    const processed = linesLrc.map(line => {
-                      const m = line.match(/^\[(\d{2}):(\d{2})\.(\d{2})\](.*)/);
-                      if (!m) return line;
-                      const text = m[4].trim();
-                      if (!text || text.startsWith('(')) return line;
-                      const words = text.split(' ');
-                      if (words.length > 2) {
-                        words[0] = chords[chordIdx % chords.length] + ' ' + words[0];
-                        chordIdx++;
-                        if (words.length > 3) {
-                          words[Math.floor(words.length / 2)] = chords[chordIdx % chords.length] + ' ' + words[Math.floor(words.length / 2)];
-                          chordIdx++;
-                        }
-                      } else {
-                        words[0] = chords[chordIdx % chords.length] + ' ' + words[0];
+              const data = await res.json();
+              if (Array.isArray(data) && data.length > 0) {
+                const match = data.find(item => item.syncedLyrics);
+                if (match && match.syncedLyrics) {
+                  // Standard chord injection
+                  const linesLrc = match.syncedLyrics.split('\n');
+                  const chords = ['[LA]', '[MI]', '[RE]', '[SOL]', '[DO]', '[LAm]', '[MIm]', '[SIm]'];
+                  let chordIdx = 0;
+                  const processed = linesLrc.map(line => {
+                    const m = line.match(/^\[(\d{2}):(\d{2})\.(\d{2})\](.*)/);
+                    if (!m) return line;
+                    const text = m[4].trim();
+                    if (!text || text.startsWith('(')) return line;
+                    const words = text.split(' ');
+                    if (words.length > 2) {
+                      words[0] = chords[chordIdx % chords.length] + ' ' + words[0];
+                      chordIdx++;
+                      if (words.length > 3) {
+                        words[Math.floor(words.length / 2)] = chords[chordIdx % chords.length] + ' ' + words[Math.floor(words.length / 2)];
                         chordIdx++;
                       }
-                      return `[${m[1]}:${m[2]}.${m[3]}] ` + words.join(' ');
-                    });
-                    sheet = processed.join('\n');
-                    // Save to Supabase permanently in background
-                    mockDb.updateLyrics(song.id, sheet);
-                    break; // exit queries loop on success!
-                  }
+                    } else {
+                      words[0] = chords[chordIdx % chords.length] + ' ' + words[0];
+                      chordIdx++;
+                    }
+                    return `[${m[1]}:${m[2]}.${m[3]}] ` + words.join(' ');
+                  });
+                  sheet = processed.join('\n');
+                  // Save to Supabase permanently in background
+                  mockDb.updateLyrics(song.id, sheet);
+                  break; // exit queries loop on success!
                 }
               }
             }
           } catch (e) {
             console.warn(`On-the-fly search failed for query "${query}":`, e);
           }
+        }
+      }
+
+      // Variation 2: Fallback to Lyrics.ovh (Plain text lyrics) if LRCLIB failed
+      if (!sheet) {
+        try {
+          const cleanTitle = cleanStr(song.title);
+          const cleanArtist = cleanStr(song.artist);
+          const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.lyrics) {
+              const rawLines = data.lyrics
+                .replace(/Paroles de.*/g, '')
+                .split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 0);
+
+              const chords = ['[LA]', '[MI]', '[RE]', '[SOL]', '[DO]', '[LAm]', '[MIm]', '[SIm]'];
+              let chordIdx = 0;
+              let currentTime = 1.0;
+
+              const processed = rawLines.map((line) => {
+                const m = Math.floor(currentTime / 60);
+                const s = Math.floor(currentTime % 60);
+                const timeStr = `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.00]`;
+                currentTime += 5.5;
+
+                const words = line.split(' ');
+                if (words.length > 2) {
+                  const c1 = chords[chordIdx % chords.length]; chordIdx++;
+                  const c2 = chords[chordIdx % chords.length]; chordIdx++;
+                  words[0] = c1 + ' ' + words[0];
+                  if (words.length > 3) {
+                    words[Math.floor(words.length / 2)] = c2 + ' ' + words[Math.floor(words.length / 2)];
+                  }
+                } else {
+                  const c = chords[chordIdx % chords.length]; chordIdx++;
+                  words[0] = c + ' ' + words[0];
+                }
+
+                return `${timeStr} ${words.join(' ')}`;
+              });
+
+              sheet = processed.join('\n');
+              mockDb.updateLyrics(song.id, sheet);
+            }
+          }
+        } catch (e) {
+          console.warn("On-the-fly Lyrics.ovh fallback search failed:", e);
         }
       }
 

@@ -14,12 +14,12 @@ function cleanSearchTerm(term) {
     .trim();
 }
 
-// Helper to fetch lyrics from LRCLIB and inject standard chords in real-time
+// Helper to fetch lyrics from LRCLIB (synced) or Lyrics.ovh (plain) and inject standard chords
 async function fetchLyricsAndChords(title, artist) {
   const cleanTitle = cleanSearchTerm(title);
   const cleanArtist = cleanSearchTerm(artist);
   
-  // Try search variations: 1. Clean Title + Clean Artist, 2. Clean Title only
+  // Variation 1: LRCLIB (Synced lyrics) with corsproxy.io
   const queries = [
     `${cleanTitle} ${cleanArtist}`,
     cleanTitle
@@ -28,18 +28,18 @@ async function fetchLyricsAndChords(title, artist) {
   for (const query of queries) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
 
+      // Using corsproxy.io (which is fast and doesn't require wrapper JSON parsing)
       const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+      
       const res = await fetch(proxyUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (res.ok) {
-        const wrapper = await res.json();
-        const data = JSON.parse(wrapper.contents);
+        const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          // Find first result that has synced lyrics
           const match = data.find(item => item.syncedLyrics);
           if (match && match.syncedLyrics) {
             const lines = match.syncedLyrics.split('\n');
@@ -52,7 +52,6 @@ async function fetchLyricsAndChords(title, artist) {
               const text = m[4].trim();
               if (!text || text.startsWith('(')) return line;
 
-              // Inject chords dynamically into lyrics text
               const words = text.split(' ');
               if (words.length > 2) {
                 const c1 = chords[chordIdx % chords.length]; chordIdx++;
@@ -73,11 +72,66 @@ async function fetchLyricsAndChords(title, artist) {
         }
       }
     } catch (e) {
-      console.warn(`Could not fetch lyrics for query "${query}":`, e);
+      console.warn(`LRCLIB search failed for query "${query}":`, e);
     }
   }
 
-  // Basic fallback if fetch fails
+  // Variation 2: Fallback to Lyrics.ovh (Plain text lyrics)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    
+    // Lyrics.ovh doesn't block CORS and has a huge collection of Italian songs
+    const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.lyrics) {
+        // We got plain text lyrics! Let's clean and auto-assign 6 seconds interval per line
+        const rawLines = data.lyrics
+          .replace(/Paroles de.*/g, '') // remove credit lines
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => l.length > 0);
+
+        const chords = ['[LA]', '[MI]', '[RE]', '[SOL]', '[DO]', '[LAm]', '[MIm]', '[SIm]'];
+        let chordIdx = 0;
+        let currentTime = 1.0; // start at 1s
+
+        const processed = rawLines.map((line) => {
+          // Format time: MM:SS.cc
+          const m = Math.floor(currentTime / 60);
+          const s = Math.floor(currentTime % 60);
+          const timeStr = `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.00]`;
+          
+          // Increment for next line (e.g. 5.5 seconds per line)
+          currentTime += 5.5;
+
+          const words = line.split(' ');
+          if (words.length > 2) {
+            const c1 = chords[chordIdx % chords.length]; chordIdx++;
+            const c2 = chords[chordIdx % chords.length]; chordIdx++;
+            words[0] = c1 + ' ' + words[0];
+            if (words.length > 3) {
+              words[Math.floor(words.length / 2)] = c2 + ' ' + words[Math.floor(words.length / 2)];
+            }
+          } else {
+            const c = chords[chordIdx % chords.length]; chordIdx++;
+            words[0] = c + ' ' + words[0];
+          }
+
+          return `${timeStr} ${words.join(' ')}`;
+        });
+
+        return processed.join('\n');
+      }
+    }
+  } catch (e) {
+    console.warn("Lyrics.ovh fallback search failed:", e);
+  }
+
+  // Basic fallback if all else fails
   return `[00:01.00] Testo non trovato online per questo brano.`;
 }
 
@@ -560,6 +614,80 @@ export const mockDb = {
       proposed_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10).toISOString()
     }));
     saveLocalProposals(updated);
+  },
+
+  // Search directly inside LRCLIB for synced lyrics songs
+  searchSyncedLyrics: async (query) => {
+    const cleanQuery = query.trim();
+    if (!cleanQuery) return [];
+
+    try {
+      const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanQuery)}`;
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          // Keep only items that have synced lyrics
+          const filtered = data.filter(item => item.syncedLyrics);
+          
+          // Map to standard track proposal structure
+          const results = filtered.map(item => ({
+            deezer_id: item.id.toString(),
+            title: item.trackName,
+            artist: item.artistName,
+            lyrics_sheet: item.syncedLyrics,
+            // Fallback default covers/previews
+            cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=150",
+            preview_url: ""
+          }));
+
+          // Limit to first 12 results
+          return results.slice(0, 12);
+        }
+      }
+    } catch (e) {
+      console.error("Direct lyrics search failed:", e);
+    }
+    return [];
+  },
+
+  // Search Deezer to resolve cover and preview metadata in background
+  resolveDeezerMetadata: async (title, artist) => {
+    try {
+      const query = encodeURIComponent(`${title} ${artist}`);
+      // JSONP to bypass CORS on Deezer API
+      return new Promise((resolve) => {
+        const callbackName = `deezer_cb_${Date.now()}`;
+        const script = document.createElement("script");
+        
+        const timer = setTimeout(() => {
+          script.remove();
+          delete window[callbackName];
+          resolve(null);
+        }, 3000);
+
+        window[callbackName] = (data) => {
+          clearTimeout(timer);
+          script.remove();
+          delete window[callbackName];
+          if (data && data.data && data.data.length > 0) {
+            const track = data.data[0];
+            resolve({
+              cover_url: track.album.cover_medium || track.album.cover || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=150",
+              preview_url: track.preview || ""
+            });
+          } else {
+            resolve(null);
+          }
+        };
+
+        script.src = `https://api.deezer.com/search?q=${query}&limit=1&output=jsonp&callback=${callbackName}`;
+        document.body.appendChild(script);
+      });
+    } catch (e) {
+      return null;
+    }
   },
 
   // Search Deezer via fast JSONP (no CORS proxy needed, executes instantly)
