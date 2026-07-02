@@ -226,8 +226,7 @@ export default function KaraokeLiveJam({ song, isHost, onClose }) {
         for (const query of queries) {
           try {
             const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-            const res = await fetch(proxyUrl);
+            const res = await fetch(targetUrl);
             if (res.ok) {
               const data = await res.json();
               if (Array.isArray(data) && data.length > 0) {

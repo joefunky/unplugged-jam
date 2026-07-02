@@ -125,6 +125,15 @@ p {
   color: var(--white);
 }
 
+.btn-bauhaus.btn-yellow {
+  border-color: var(--bauhaus-yellow);
+  color: var(--bauhaus-yellow);
+}
+.btn-bauhaus.btn-yellow:hover {
+  background-color: var(--bauhaus-yellow);
+  color: var(--black);
+}
+
 /* Minimal Form inputs */
 .bauhaus-input {
   width: 100%;

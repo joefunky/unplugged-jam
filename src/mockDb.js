@@ -622,9 +622,9 @@ export const mockDb = {
     if (!cleanQuery) return [];
 
     try {
+      // LRCLIB has CORS enabled natively, we can query it directly!
       const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanQuery)}`;
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
-      const res = await fetch(proxyUrl);
+      const res = await fetch(targetUrl);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -637,12 +637,10 @@ export const mockDb = {
             title: item.trackName,
             artist: item.artistName,
             lyrics_sheet: item.syncedLyrics,
-            // Fallback default covers/previews
             cover_url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=150",
             preview_url: ""
           }));
 
-          // Limit to first 12 results
           return results.slice(0, 12);
         }
       }
