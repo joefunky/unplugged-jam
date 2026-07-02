@@ -179,7 +179,7 @@ function App() {
       } finally {
         setIsSearching(false);
       }
-    }, 450);
+    }, 150);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
