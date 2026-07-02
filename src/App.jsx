@@ -21,6 +21,7 @@ function App() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [playerInstrument, setPlayerInstrument] = useState('Chitarra');
+  const [selectedKaraokeSong, setSelectedKaraokeSong] = useState(null);
   
   // Audio Player State
   const [playingId, setPlayingId] = useState(null);
@@ -343,13 +344,20 @@ function App() {
             <button 
               className={`tab-btn-bauhaus ${activeTab === 'propose' ? 'active' : ''}`} 
               onClick={() => setActiveTab('propose')}
-              style={{
-                backgroundColor: activeTab === 'leaderboard' ? 'var(--bauhaus-yellow)' : 'transparent',
-                color: activeTab === 'leaderboard' ? 'black' : 'var(--white)',
-                fontWeight: activeTab === 'leaderboard' ? '900' : 'bold'
-              }}
             >
               Proponi
+            </button>
+            <button 
+              className={`tab-btn-bauhaus ${activeTab === 'karaoke' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('karaoke')}
+            >
+              🎤 Karaoke
+            </button>
+            <button 
+              className={`tab-btn-bauhaus ${activeTab === 'info' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('info')}
+            >
+              Info
             </button>
             {currentUser && currentUser.is_admin && (
               <button 
@@ -935,6 +943,200 @@ Moderazione
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: KARAOKE LIVE */}
+        {activeTab === 'karaoke' && (
+          <div>
+            <div style={{borderBottom: '1px solid var(--white)', paddingBottom: '16px', marginBottom: '24px'}}>
+              <h2>KARAOKE ACUSTICO</h2>
+              <p style={{marginTop: '6px', fontSize: '0.9rem'}}>
+                Modalità Live per la sera dell'evento: leggi i testi e gli accordi per chitarra dei brani proposti in classifica.
+              </p>
+            </div>
+
+            {selectedKaraokeSong ? (
+              /* Karaoke Dynamic Player Overlay/Full-screen view */
+              <div style={{
+                backgroundColor: '#000000',
+                border: '3px solid var(--white)',
+                padding: '24px',
+                marginTop: '10px',
+                position: 'relative'
+              }}>
+                <button 
+                  onClick={() => setSelectedKaraokeSong(null)} 
+                  className="btn-bauhaus btn-red"
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    width: 'auto',
+                    padding: '8px 16px',
+                    fontSize: '0.8rem',
+                    boxShadow: 'none'
+                  }}
+                >
+                  CHIUDI
+                </button>
+
+                <div style={{marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '16px', marginRight: '80px'}}>
+                  <h3 style={{fontSize: '1.4rem', textTransform: 'uppercase'}}>{selectedKaraokeSong.title}</h3>
+                  <p style={{fontSize: '0.9rem', color: 'var(--charcoal)', fontWeight: 'bold'}}>{selectedKaraokeSong.artist.toUpperCase()}</p>
+                </div>
+
+                {/* Chords Header Banner */}
+                <div style={{
+                  backgroundColor: 'var(--bauhaus-blue)',
+                  color: 'white',
+                  padding: '12px 16px',
+                  marginBottom: '24px',
+                  fontWeight: '900',
+                  fontSize: '0.95rem',
+                  letterSpacing: '0.05em'
+                }}>
+                  🎸 ACCORDI PRINCIPALI: {selectedKaraokeSong.title.toLowerCase().includes("sole") ? "LA - MI - RE - MI" : selectedKaraokeSong.title.toLowerCase().includes("wonderwall") ? "MIM7 - SOL - RE - LA7SUS4" : "DO - SOL - LAM - FA (GIRO CLASSICO)"}
+                </div>
+
+                {/* Lyrics Body */}
+                <div style={{
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  fontFamily: 'monospace',
+                  fontSize: '1.1rem',
+                  lineHeight: '2.2',
+                  whiteSpace: 'pre-wrap',
+                  padding: '16px',
+                  border: '1px dashed rgba(255,255,255,0.3)',
+                  backgroundColor: '#050505',
+                  color: 'var(--white)'
+                }}>
+                  {/* Render lyrics with chords highlighted */}
+                  {selectedKaraokeSong.title.toLowerCase().includes("sole") ? (
+                    `[LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi
+[LA] Le tue cal[MI]zette [RE] rosse [Mi]
+[LA] E l'inno[MI]cenza su[RE]lle labbra [Mi] tue
+[LA] Due aran[MI]ce ancor più [RE] rosse [Mi]
+
+[LA] Ma la can[MI]zone del [RE] sole [MI]
+[LA] Cosa ne [MI] sa? [RE] [MI]
+[LA] Ma cosa [MI] ne sa di [RE] noi? [MI]`
+                  ) : selectedKaraokeSong.title.toLowerCase().includes("wonderwall") ? (
+                    `[MIm7] Today is [SOL] gonna be the day
+That they're [RE] gonna throw it back to [LA7sus4] you
+[MIm7] By now you [SOL] should've somehow
+Real[RE]ized what you gotta [LA7sus4] do
+
+[DO] I don't believe that [RE] anybody
+[MIm7] Feels the way I [SOL] do about you [LA7sus4] now`
+                  ) : (
+                    `[DO] Lungo la strada [SOL] passeggiavamo insieme,
+[LAM] le onde del mare e [FA] l'accordo che sale.
+[DO] Sotto le stelle di [SOL] questa notte d'estate,
+[LAM] cantiamo forte le [FA] nostre canzoni preferite.
+
+(Ritornello)
+[DO] E si suona, [SOL] e si balla sulla sabbia!
+[LAM] Senza pensieri e [FA] senza più rabbia.
+[DO] Con una chitarra [SOL] e un cerchio di amici,
+[LAM] in questa notte ci [FA] sentiamo felici.`
+                  )}
+                </div>
+
+                <div style={{marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center'}}>
+                  {selectedKaraokeSong.preview_url && (
+                    <button 
+                      onClick={() => togglePlay(selectedKaraokeSong.id, selectedKaraokeSong.preview_url)} 
+                      className="btn-bauhaus btn-blue"
+                      style={{width: 'auto', padding: '10px 20px', fontSize: '0.9rem', fontWeight: 'bold'}}
+                    >
+                      {playingId === selectedKaraokeSong.id ? '⏸ ARRESTA TRACCIA' : '▶ ASCOLTA RITMO (DEEZER)'}
+                    </button>
+                  )}
+                  <span style={{fontSize: '0.75rem', opacity: 0.6}}>
+                    L'audio riproduce 30 secondi di anteprima per prendere il tempo della jam.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* Song List to pick for Karaoke */
+              <div>
+                {proposals.length === 0 ? (
+                  <div style={{textAlign: 'center', padding: '40px 0', border: '1px dashed var(--white)'}}>
+                    <p style={{fontWeight: 'bold'}}>NESSUNA CANZONE DISPONIBILE NELLA SCALETTA.</p>
+                    <p style={{fontSize: '0.85rem', color: 'var(--charcoal)', marginTop: '8px'}}>
+                      Proponi e vota canzoni nella Classifica per farle comparire qui!
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{fontSize: '0.85rem', color: 'var(--charcoal)', marginBottom: '16px'}}>
+                      Seleziona uno dei brani proposti in scaletta per avviare lo spartito digitale con accordi e testo:
+                    </p>
+                    <div>
+                      {proposals.map((song, index) => (
+                        <div 
+                          key={song.id} 
+                          className="row-item"
+                          style={{cursor: 'pointer'}}
+                          onClick={() => setSelectedKaraokeSong(song)}
+                        >
+                          <div className="row-num">{index + 1}</div>
+                          <img src={song.cover_url} alt={song.title} className="flat-cover" />
+                          <div className="row-info">
+                            <div className="row-title" style={{textTransform: 'uppercase'}}>{song.title}</div>
+                            <div className="row-subtitle">{song.artist} | STRUMENTISTI DESIGNATI: {song.player_name ? `${song.player_name} (${song.player_instrument})` : 'NESSUNO'}</div>
+                          </div>
+                          <div className="row-actions">
+                            <button 
+                              className="btn-bauhaus btn-blue"
+                              style={{width: 'auto', padding: '6px 12px', fontSize: '0.75rem', boxShadow: 'none'}}
+                            >
+                              CANTA / SUONA
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: INFO EVENTO */}
+        {activeTab === 'info' && (
+          <div>
+            <div style={{borderBottom: '1px solid var(--white)', paddingBottom: '16px', marginBottom: '24px'}}>
+              <h2>DETTAGLI JAM</h2>
+              <p style={{marginTop: '6px', fontSize: '0.9rem'}}>
+                Informazioni pratiche e logistica per la serata dell'evento.
+              </p>
+            </div>
+
+            <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+              <div style={{borderLeft: '4px solid var(--bauhaus-blue)', paddingLeft: '16px'}}>
+                <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>LUOGO EVENTO</span>
+                <strong style={{fontSize: '1.15rem', textTransform: 'uppercase'}}>metallica aru pontinu</strong>
+              </div>
+
+              <div style={{borderLeft: '4px solid var(--bauhaus-yellow)', paddingLeft: '16px'}}>
+                <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>DATA & ORA</span>
+                <strong style={{fontSize: '1.15rem', textTransform: 'uppercase'}}>tba (da definire)</strong>
+              </div>
+
+              <div style={{borderLeft: '4px solid var(--white)', paddingLeft: '16px'}}>
+                <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>COSA PORTARE</span>
+                <p style={{fontSize: '0.95rem', margin: '4px 0 0 0'}}>Chitarre acustiche, percussioni portatili (tamburelli, cajon), teli mare, e tante patatine!</p>
+              </div>
+
+              <div style={{borderLeft: '4px solid var(--white)', paddingLeft: '16px'}}>
+                <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>BEVANDE & CIBO</span>
+                <p style={{fontSize: '0.95rem', margin: '4px 0 0 0'}}>Bar in loco ma feel free to bring your own.</p>
+              </div>
             </div>
           </div>
         )}
