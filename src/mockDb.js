@@ -33,7 +33,11 @@ export const mockDb = {
   getCurrentUser: async () => {
     if (isSupabaseConfigured()) {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !session.user) return null;
+      if (!session || !session.user) {
+        // Fallback to local mock user if logged in locally for testing
+        const localUser = localStorage.getItem("jam_current_user");
+        return localUser ? JSON.parse(localUser) : null;
+      }
       
       // Fetch custom profile info
       const { data: profile } = await supabase
@@ -55,6 +59,16 @@ export const mockDb = {
   },
 
   login: async (userId) => {
+    // If it's a test mock userId, always login locally even if Supabase is active
+    if (userId && (userId === 'u1' || userId === 'u2' || userId === 'u3')) {
+      const users = JSON.parse(localStorage.getItem("jam_users_v3")) || MOCK_USERS;
+      const user = users.find(u => u.id === userId);
+      if (user) {
+        localStorage.setItem("jam_current_user", JSON.stringify(user));
+        return user;
+      }
+    }
+
     if (isSupabaseConfigured()) {
       // Trigger Google OAuth redirection
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -95,6 +109,44 @@ export const mockDb = {
     localStorage.setItem("jam_users_v3", JSON.stringify(users));
     localStorage.setItem("jam_current_user", JSON.stringify(newUser));
     return newUser;
+  },
+
+  // Live Session Synchronizer
+  getLiveActiveSong: async () => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('live_session')
+          .select('*')
+          .eq('id', 'unplugged_session')
+          .maybeSingle();
+        if (data) return data;
+      } catch (err) {
+        console.error("Errore fetch live_session da Supabase:", err);
+      }
+    }
+    // Mock local storage fallback
+    const local = localStorage.getItem("live_session_v3");
+    return local ? JSON.parse(local) : { active_song_id: null, started_at: null, is_playing: false };
+  },
+
+  setLiveActiveSong: async (songId, isPlaying = false) => {
+    const session = {
+      active_song_id: songId,
+      started_at: songId ? new Date().toISOString() : null,
+      is_playing: isPlaying
+    };
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('live_session')
+          .upsert({ id: 'unplugged_session', ...session });
+      } catch (err) {
+        console.error("Errore save live_session su Supabase:", err);
+      }
+    }
+    localStorage.setItem("live_session_v3", JSON.stringify(session));
+    return session;
   },
 
   // Proposals
