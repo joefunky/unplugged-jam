@@ -2,6 +2,52 @@ import React, { useState, useEffect, useRef } from 'react';
 import { mockDb } from './mockDb';
 import { isSupabaseConfigured } from './supabaseClient';
 
+const LYRICS_DATA = {
+  sole: [
+    { time: 0, text: "[LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi" },
+    { time: 3, text: "[LA] Le tue cal[MI]zette [RE] rosse [MI]" },
+    { time: 6, text: "[LA] E l'inno[MI]cenza su[RE]lle labbra [MI] tue" },
+    { time: 9, text: "[LA] Due aran[MI]ce ancor più [RE] rosse [MI]" },
+    { time: 12, text: "[LA] Ma la can[MI]zone del [RE] sole [MI]" },
+    { time: 15, text: "[LA] Cosa ne [MI] sa? [RE] [MI]" },
+    { time: 18, text: "[LA] Ma cosa [MI] ne sa di [RE] noi? [MI]" },
+    { time: 21, text: "[LA] E al cimitero [MI] dei [RE] fiori [MI]" },
+    { time: 24, text: "[LA] Un altro [MI] sole [RE] nascerà [MI]" }
+  ],
+  wonderwall: [
+    { time: 0, text: "[MIm7] Today is [SOL] gonna be the day" },
+    { time: 3, text: "That they're [RE] gonna throw it back to [LA7sus4] you" },
+    { time: 6, text: "[MIm7] By now you [SOL] should've somehow" },
+    { time: 9, text: "Real[RE]ized what you gotta [LA7sus4] do" },
+    { time: 12, text: "[DO] I don't believe that [RE] anybody" },
+    { time: 15, text: "[MIm7] Feels the way I [SOL] do about you [LA7sus4] now" },
+    { time: 18, text: "[DO] And backbeat, the [RE] word was on the [MIm7] street" },
+    { time: 21, text: "That the [SOL] fire in your heart is [LA7sus4] out" }
+  ],
+  box: [
+    { time: 0, text: "[MIm] I'm the man in the [SOL] box" },
+    { time: 3, text: "[RE] Buried in my [LA] shit" },
+    { time: 6, text: "[MIm] Won't you come and [SOL] save me?" },
+    { time: 9, text: "[RE] Save [LA] me" },
+    { time: 12, text: "(Ritornello)" },
+    { time: 14, text: "[MIm] Feed my [SOL] eyes, can you [RE] sew them [LA] shut?" },
+    { time: 18, text: "[MIm] Jesus [SOL] Christ, de[RE]ny your [LA] maker" },
+    { time: 22, text: "[MIm] He who [SOL] tries, will [RE] be [LA] wasted" },
+    { time: 26, text: "[MIm] Feed my [SOL] eyes, now you've [RE] sewn them [LA] shut" }
+  ],
+  fallback: [
+    { time: 0, text: "[DO] Lungo la strada [SOL] passeggiavamo insieme," },
+    { time: 3, text: "[LAM] le onde del mare e [FA] l'accordo che sale." },
+    { time: 6, text: "[DO] Sotto le stelle di [SOL] questa notte d'estate," },
+    { time: 9, text: "[LAM] cantiamo forte le [FA] nostre canzoni preferite." },
+    { time: 12, text: "(Ritornello)" },
+    { time: 15, text: "[DO] E si suona, [SOL] e si balla sulla sabbia!" },
+    { time: 18, text: "[LAM] Senza pensieri e [FA] senza più rabbia." },
+    { time: 21, text: "[DO] Con una chitarra [SOL] e un cerchio di amici," },
+    { time: 24, text: "[LAM] in questa notte ci [FA] sentiamo felici." }
+  ]
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [currentUser, setCurrentUser] = useState(null);
@@ -26,6 +72,21 @@ function App() {
   // Audio Player State
   const [playingId, setPlayingId] = useState(null);
   const audioRef = useRef(null);
+  const [karaokeTime, setKaraokeTime] = useState(0);
+
+  useEffect(() => {
+    let interval;
+    if (playingId && activeTab === 'karaoke') {
+      interval = setInterval(() => {
+        if (audioRef.current) {
+          setKaraokeTime(audioRef.current.currentTime);
+        }
+      }, 100);
+    } else {
+      setKaraokeTime(0);
+    }
+    return () => clearInterval(interval);
+  }, [playingId, activeTab]);
 
   // Authentication Dialog & Custom user registration
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -347,12 +408,14 @@ function App() {
             >
               Proponi
             </button>
-            <button 
-              className={`tab-btn-bauhaus ${activeTab === 'karaoke' ? 'active' : ''}`} 
-              onClick={() => setActiveTab('karaoke')}
-            >
-              🎤 Karaoke
-            </button>
+            {currentUser?.is_admin && (
+              <button 
+                className={`tab-btn-bauhaus ${activeTab === 'karaoke' ? 'active' : ''}`} 
+                onClick={() => setActiveTab('karaoke')}
+              >
+                🎤 Karaoke (BETA)
+              </button>
+            )}
             <button 
               className={`tab-btn-bauhaus ${activeTab === 'info' ? 'active' : ''}`} 
               onClick={() => setActiveTab('info')}
@@ -997,52 +1060,59 @@ Moderazione
                   fontSize: '0.95rem',
                   letterSpacing: '0.05em'
                 }}>
-                  🎸 ACCORDI PRINCIPALI: {selectedKaraokeSong.title.toLowerCase().includes("sole") ? "LA - MI - RE - MI" : selectedKaraokeSong.title.toLowerCase().includes("wonderwall") ? "MIM7 - SOL - RE - LA7SUS4" : "DO - SOL - LAM - FA (GIRO CLASSICO)"}
+                  🎸 ACCORDI PRINCIPALI: {selectedKaraokeSong.title.toLowerCase().includes("sole") ? "LA - MI - RE - MI" : selectedKaraokeSong.title.toLowerCase().includes("wonderwall") ? "MIM7 - SOL - RE - LA7SUS4" : selectedKaraokeSong.title.toLowerCase().includes("box") ? "MIM - SOL - RE - LA" : "DO - SOL - LAM - FA (GIRO CLASSICO)"}
                 </div>
 
                 {/* Lyrics Body */}
                 <div style={{
-                  maxHeight: '400px',
+                  maxHeight: '320px',
                   overflowY: 'auto',
                   fontFamily: 'monospace',
-                  fontSize: '1.1rem',
-                  lineHeight: '2.2',
-                  whiteSpace: 'pre-wrap',
+                  fontSize: '1.15rem',
+                  lineHeight: '2.5',
                   padding: '16px',
                   border: '1px dashed rgba(255,255,255,0.3)',
                   backgroundColor: '#050505',
-                  color: 'var(--white)'
+                  color: 'var(--white)',
+                  scrollBehavior: 'smooth'
                 }}>
-                  {/* Render lyrics with chords highlighted */}
-                  {selectedKaraokeSong.title.toLowerCase().includes("sole") ? (
-                    `[LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi
-[LA] Le tue cal[MI]zette [RE] rosse [Mi]
-[LA] E l'inno[MI]cenza su[RE]lle labbra [Mi] tue
-[LA] Due aran[MI]ce ancor più [RE] rosse [Mi]
+                  {(() => {
+                    const lyricsKey = selectedKaraokeSong.title.toLowerCase().includes("sole") ? "sole" 
+                      : selectedKaraokeSong.title.toLowerCase().includes("wonderwall") ? "wonderwall" 
+                      : selectedKaraokeSong.title.toLowerCase().includes("box") ? "box" 
+                      : "fallback";
+                    const lines = LYRICS_DATA[lyricsKey];
+                    
+                    // Find active line index based on current playback time
+                    let activeIndex = 0;
+                    for (let i = 0; i < lines.length; i++) {
+                      if (karaokeTime >= lines[i].time) {
+                        activeIndex = i;
+                      } else {
+                        break;
+                      }
+                    }
 
-[LA] Ma la can[MI]zone del [RE] sole [MI]
-[LA] Cosa ne [MI] sa? [RE] [MI]
-[LA] Ma cosa [MI] ne sa di [RE] noi? [MI]`
-                  ) : selectedKaraokeSong.title.toLowerCase().includes("wonderwall") ? (
-                    `[MIm7] Today is [SOL] gonna be the day
-That they're [RE] gonna throw it back to [LA7sus4] you
-[MIm7] By now you [SOL] should've somehow
-Real[RE]ized what you gotta [LA7sus4] do
-
-[DO] I don't believe that [RE] anybody
-[MIm7] Feels the way I [SOL] do about you [LA7sus4] now`
-                  ) : (
-                    `[DO] Lungo la strada [SOL] passeggiavamo insieme,
-[LAM] le onde del mare e [FA] l'accordo che sale.
-[DO] Sotto le stelle di [SOL] questa notte d'estate,
-[LAM] cantiamo forte le [FA] nostre canzoni preferite.
-
-(Ritornello)
-[DO] E si suona, [SOL] e si balla sulla sabbia!
-[LAM] Senza pensieri e [FA] senza più rabbia.
-[DO] Con una chitarra [SOL] e un cerchio di amici,
-[LAM] in questa notte ci [FA] sentiamo felici.`
-                  )}
+                    return lines.map((line, idx) => {
+                      const isActive = idx === activeIndex && playingId === selectedKaraokeSong.id;
+                      return (
+                        <div 
+                          key={idx}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: isActive ? 'var(--bauhaus-yellow)' : 'transparent',
+                            color: isActive ? 'black' : 'var(--white)',
+                            fontWeight: isActive ? '900' : 'normal',
+                            transition: 'all 0.2s ease',
+                            borderLeft: isActive ? '6px solid var(--bauhaus-blue)' : 'none',
+                            textTransform: 'uppercase'
+                          }}
+                        >
+                          {line.text}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
                 <div style={{marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center'}}>
