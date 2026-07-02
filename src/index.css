@@ -1,0 +1,369 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+
+:root {
+  --font-bauhaus: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Bauhaus White on Black Color Tokens */
+  --bg-bauhaus: #000000;
+  --white: #FFFFFF;
+  --black: #000000;
+  --charcoal: #CCCCCC;
+  
+  --bauhaus-red: #E23B22;
+  --bauhaus-blue: #1B4FA2;
+  --bauhaus-yellow: #F2CD12;
+  
+  --border-width: 1px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0px !important;
+}
+
+body {
+  font-family: var(--font-bauhaus);
+  background-color: var(--bg-bauhaus);
+  color: var(--white);
+  padding: 0;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Base Layout Constraints - Clean and minimal */
+.app-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px 20px 100px;
+  width: 100%;
+}
+
+/* Typography Scale */
+h1 {
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+  color: var(--white);
+  margin-bottom: 8px;
+}
+
+h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: var(--white);
+}
+
+h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--white);
+}
+
+p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--charcoal);
+}
+
+/* Minimal Dividers */
+.bauhaus-divider {
+  border-top: var(--border-width) solid var(--white);
+  margin: 24px 0;
+}
+
+/* Buttons: Stark outline inversion */
+.btn-bauhaus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background-color: transparent;
+  color: var(--white);
+  border: var(--border-width) solid var(--white);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: center;
+}
+
+.btn-bauhaus:hover {
+  background-color: var(--white);
+  color: var(--black);
+}
+
+.btn-bauhaus.btn-blue {
+  border-color: var(--bauhaus-blue);
+  color: var(--white);
+}
+.btn-bauhaus.btn-blue:hover {
+  background-color: var(--bauhaus-blue);
+  color: var(--white);
+}
+
+.btn-bauhaus.btn-red {
+  border-color: var(--bauhaus-red);
+  color: var(--white);
+}
+.btn-bauhaus.btn-red:hover {
+  background-color: var(--bauhaus-red);
+  color: var(--white);
+}
+
+/* Minimal Form inputs */
+.bauhaus-input {
+  width: 100%;
+  background-color: transparent;
+  border: var(--border-width) solid var(--white);
+  padding: 12px;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--white);
+  outline: none;
+}
+
+.bauhaus-input:focus {
+  background-color: var(--white);
+  color: var(--black);
+}
+
+.bauhaus-label {
+  display: block;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+  color: var(--charcoal);
+}
+
+/* Navigation Tabs: simple bottom border indicators */
+.tabs-bauhaus {
+  display: flex;
+  border-bottom: var(--border-width) solid var(--white);
+  margin-bottom: 30px;
+}
+
+.tab-btn-bauhaus {
+  flex: 1;
+  background-color: transparent;
+  color: var(--charcoal);
+  border: none;
+  padding: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.tab-btn-bauhaus:hover {
+  color: var(--white);
+}
+
+.tab-btn-bauhaus.active {
+  color: var(--white);
+  border-bottom: 3px solid var(--white);
+  margin-bottom: -1px;
+}
+
+/* Leaderboard Rows: Minimal listing separated by thin lines */
+.row-item {
+  display: flex;
+  align-items: center;
+  border-bottom: var(--border-width) solid rgba(255, 255, 255, 0.15);
+  padding: 16px 0;
+  gap: 16px;
+}
+
+.row-item:last-child {
+  border-bottom: var(--border-width) solid var(--white);
+}
+
+.row-num {
+  font-size: 2.2rem;
+  font-weight: 900;
+  width: 40px;
+  text-align: left;
+  line-height: 1;
+}
+
+/* Top 3 rank highlights: just text coloring, no background block panels */
+.row-top-1 .row-num {
+  color: var(--bauhaus-yellow);
+}
+.row-top-2 .row-num {
+  color: var(--bauhaus-blue);
+}
+.row-top-3 .row-num {
+  color: var(--bauhaus-red);
+}
+
+.row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-subtitle {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--charcoal);
+  margin-top: 2px;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.row-btn-vote {
+  background: transparent;
+  color: var(--white);
+  border: var(--border-width) solid var(--white);
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  transition: all 0.15s ease;
+}
+
+.row-btn-vote:hover {
+  background-color: var(--white);
+  color: var(--black);
+}
+
+.row-btn-vote.voted {
+  background-color: var(--bauhaus-red);
+  border-color: var(--bauhaus-red);
+  color: var(--white);
+}
+
+.row-btn-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  text-decoration: underline;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--charcoal);
+}
+
+.row-btn-action:hover {
+  color: var(--white);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.modal-bauhaus {
+  background-color: var(--black);
+  border: var(--border-width) solid var(--white);
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Toast */
+.toast-bauhaus {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--white);
+  color: var(--black);
+  border: 1px solid var(--black);
+  padding: 10px 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  z-index: 2000;
+}
+
+.toast-bauhaus.error {
+  background-color: var(--bauhaus-red);
+  color: var(--white);
+}
+
+/* Autocomplete results in form */
+.search-results-list {
+  border: var(--border-width) solid var(--white);
+  border-top: none;
+  background-color: var(--black);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.search-results-item {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: var(--charcoal);
+}
+
+.search-results-item:hover {
+  background-color: var(--white);
+  color: var(--black);
+}
+
+/* Cover art flat layout */
+.flat-cover {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  object-fit: cover;
+}
+
+/* Admin / Debug Info */
+.debug-bar {
+  border-bottom: var(--border-width) solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  color: var(--charcoal);
+}
