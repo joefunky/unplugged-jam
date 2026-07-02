@@ -77,13 +77,8 @@ async function fetchLyricsAndChords(title, artist) {
     }
   }
 
-  // Basic fallback template if fetch fails
-  return `[00:01.00] (Riproduzione in corso...)
-[00:05.00] [DO] Canto questa [SOL] canzone insieme a [LAm] te
-[00:10.00] [FA] Sotto la [DO] luna e le stelle [SOL]
-[00:15.00] [LAm] Sentiamo il [FA] ritmo salire nel [DO] vento [SOL]
-[00:20.00] [FA] E il jam [SOL] non finira [DO]
-[00:25.00] (Fine spartito di prova)`;
+  // Basic fallback if fetch fails
+  return `[00:01.00] Testo non trovato online per questo brano.`;
 }
 
 // Helper for default local mock data
@@ -353,7 +348,8 @@ export const mockDb = {
           proposed_by: user.id,
           proposed_by_name: user.display_name,
           player_name: songData.player_name || null,
-          player_instrument: songData.player_name ? songData.player_instrument : null
+          player_instrument: songData.player_name ? songData.player_instrument : null,
+          lyrics_sheet: lyricsSheet
         })
         .select()
         .single();
@@ -610,6 +606,28 @@ export const mockDb = {
       
       document.body.appendChild(script);
     });
+  },
+
+  updateLyrics: async (songId, lyricsSheet) => {
+    if (!songId || !lyricsSheet) return;
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('proposals')
+          .update({ lyrics_sheet: lyricsSheet })
+          .eq('id', songId);
+      } catch (e) {
+        console.error("Error updating lyrics on Supabase:", e);
+      }
+      return;
+    }
+
+    const proposals = getLocalProposals();
+    const idx = proposals.findIndex(p => p.id === songId);
+    if (idx > -1) {
+      proposals[idx].lyrics_sheet = lyricsSheet;
+      saveLocalProposals(proposals);
+    }
   }
 };
 

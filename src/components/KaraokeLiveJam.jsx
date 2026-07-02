@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { mockDb } from '../mockDb';
 
 // --- Guitar Chord Database (Italian chord names) ------------------------------
 // Format: [E-low, A, D, G, B, e-high]  -1=muted  0=open  n=fret
@@ -258,6 +259,8 @@ export default function KaraokeLiveJam({ song, isHost, onClose }) {
                       return `[${m[1]}:${m[2]}.${m[3]}] ` + words.join(' ');
                     });
                     sheet = processed.join('\n');
+                    // Save to Supabase permanently in background
+                    mockDb.updateLyrics(song.id, sheet);
                     break; // exit queries loop on success!
                   }
                 }
@@ -270,12 +273,7 @@ export default function KaraokeLiveJam({ song, isHost, onClose }) {
       }
 
       if (!sheet) {
-        sheet = `[00:01.00] (Testo non trovato online)
-[00:05.00] [DO] Canto questa [SOL] canzone insieme a [LAm] te
-[00:10.00] [FA] Sotto la [DO] luna e le stelle [SOL]
-[00:15.00] [LAm] Sentiamo il [FA] ritmo salire nel [DO] vento [SOL]
-[00:20.00] [FA] E il jam [SOL] non finira [DO]
-[00:25.00] (Fine spartito di prova)`;
+        sheet = `[00:01.00] Testo non trovato online per questo brano.`;
       }
 
       setLines(parseLrc(sheet));

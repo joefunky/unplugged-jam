@@ -512,11 +512,11 @@ function App() {
                               <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
                                 <div className="row-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>
                                   {song.title}
-                                  {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                 </div>
                                 <div className="row-subtitle">{song.artist}</div>
-                                <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center' }}>
                                   PROP. DA {song.proposed_by_name.toUpperCase()}
+                                  {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                 </div>
                               </div>
 
@@ -616,11 +616,11 @@ function App() {
                                 <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
                                   <div className="row-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>
                                     {song.title}
-                                    {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                   </div>
                                   <div className="row-subtitle">{song.artist}</div>
-                                  <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                  <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center' }}>
                                     PROP. DA {song.proposed_by_name.toUpperCase()}
+                                    {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                   </div>
                                 </div>
 
@@ -788,11 +788,11 @@ function App() {
                               <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
                                 <div className="row-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>
                                   {song.title}
-                                  {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                 </div>
                                 <div className="row-subtitle">{song.artist}</div>
-                                <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center' }}>
                                   PROP. DA {song.proposed_by_name.toUpperCase()}
+                                  {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                 </div>
                               </div>
 
