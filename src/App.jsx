@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { mockDb } from './mockDb';
+import { isSupabaseConfigured } from './supabaseClient';
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -284,6 +285,9 @@ function App() {
           {/* Item 2: Title of the Event (No Longobardi) */}
           <header style={{marginBottom: '10px'}}>
             <h1>UNPLUGGED</h1>
+            <div style={{fontSize: '1.2rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--white)', marginTop: '-8px', marginBottom: '24px'}}>
+              jam in spiaggia
+            </div>
           </header>
 
           {/* Item 3: Phase and Countdown */}
@@ -297,11 +301,11 @@ function App() {
           {/* Item 5: Regulation & CTA button to Leaderboard */}
           <div style={{borderTop: '1px solid var(--white)', paddingTop: '24px'}}>
             <h2 style={{marginBottom: '12px'}}>REGOLAMENTO</h2>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px'}}>
-              <p style={{fontSize: '0.95rem'}}>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '30px'}}>
+              <p style={{fontSize: '0.82rem', lineHeight: '1.25', opacity: 0.9}}>
                 <strong>1. PROPOSTA:</strong> Ciascun utente registrato può suggerire al massimo <strong>una canzone a settimana</strong>. Il reset avviene il lunedì alle 00:00.
               </p>
-              <p style={{fontSize: '0.95rem'}}>
+              <p style={{fontSize: '0.82rem', lineHeight: '1.25', opacity: 0.9}}>
                 <strong>2. VOTO:</strong> Vota liberamente i brani che preferisci. Le <strong>20 canzoni più votate</strong> diventeranno la scaletta ufficiale. In caso di parità, vince la proposta inviata prima.
               </p>
             </div>
@@ -335,6 +339,11 @@ function App() {
             <button 
               className={`tab-btn-bauhaus ${activeTab === 'propose' ? 'active' : ''}`} 
               onClick={() => setActiveTab('propose')}
+              style={{
+                backgroundColor: activeTab === 'leaderboard' ? 'var(--bauhaus-yellow)' : 'transparent',
+                color: activeTab === 'leaderboard' ? 'black' : 'var(--white)',
+                fontWeight: activeTab === 'leaderboard' ? '900' : 'bold'
+              }}
             >
               Proponi
             </button>
@@ -352,6 +361,38 @@ Moderazione
             {/* TAB: LEADERBOARD */}
             {activeTab === 'leaderboard' && (
               <div>
+                {/* CTA Row to Propose a song */}
+                <div style={{
+                  backgroundColor: 'var(--bauhaus-blue)',
+                  color: 'white',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  fontSize: '0.8rem'
+                }}>
+                  <span>Hai un brano da suonare in spiaggia?</span>
+                  <button 
+                    onClick={() => setActiveTab('propose')} 
+                    className="btn-bauhaus"
+                    style={{
+                      width: 'auto', 
+                      backgroundColor: 'var(--bauhaus-yellow)', 
+                      color: 'black', 
+                      padding: '6px 12px', 
+                      fontSize: '0.75rem',
+                      boxShadow: 'none',
+                      border: '1px solid black',
+                      fontWeight: '900'
+                    }}
+                  >
+                    PROPONI BRANO
+                  </button>
+                </div>
+
                 {/* Sub-Tabs Toggle (Three sections) */}
                 <div style={{display: 'flex', borderBottom: '1px solid var(--white)', marginBottom: '20px'}}>
                   <button 
@@ -903,47 +944,60 @@ Moderazione
           <div className="modal-bauhaus" onClick={(e) => e.stopPropagation()}>
             <h3 style={{marginBottom: '16px', borderBottom: '1px solid var(--white)', paddingBottom: '8px'}}>ACCEDI AL PROFILO</h3>
             
-            <div style={{display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px'}}>
-              <p style={{fontSize: '0.8rem', marginBottom: '8px', fontWeight: 'bold'}}>UTILIZZA ACCOUNT DI TEST RAPIDO:</p>
-              <button onClick={() => handleLogin('u1')} className="btn-bauhaus" style={{textAlign: 'left', display: 'block'}}>
-                PAOLO ROSSI (UTENTE)
-              </button>
-              <button onClick={() => handleLogin('u2')} className="btn-bauhaus" style={{textAlign: 'left', display: 'block'}}>
-                GIULIA BIANCHI (UTENTE)
-              </button>
-              <button onClick={() => handleLogin('u3')} className="btn-bauhaus btn-blue" style={{textAlign: 'left', display: 'block'}}>
-                ORGANIZZATORE (ADMIN)
-              </button>
-            </div>
-
-            <div style={{borderTop: '1px solid var(--white)', paddingTop: '16px'}}>
-              <h4 style={{fontSize: '0.85rem', marginBottom: '12px', fontWeight: '900'}}>REGISTRA NUOVO OAUTH (MOCK):</h4>
-              <form onSubmit={handleRegisterCustom}>
-                <div style={{marginBottom: '10px'}}>
-                  <input 
-                    type="text" 
-                    placeholder="NOME COMPLETO" 
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                    className="bauhaus-input"
-                    required
-                  />
-                </div>
-                <div style={{marginBottom: '16px'}}>
-                  <input 
-                    type="email" 
-                    placeholder="EMAIL" 
-                    value={customEmail}
-                    onChange={(e) => setCustomEmail(e.target.value)}
-                    className="bauhaus-input"
-                    required
-                  />
-                </div>
-                <button type="submit" className="btn-bauhaus btn-blue">
+            {isSupabaseConfigured() ? (
+              <div style={{marginBottom: '20px'}}>
+                <p style={{fontSize: '0.9rem', marginBottom: '16px', color: 'var(--charcoal)', textTransform: 'uppercase'}}>
+                  ACCEDI CON IL TUO ACCOUNT GOOGLE UFFICIALE:
+                </p>
+                <button onClick={() => handleLogin()} className="btn-bauhaus btn-blue">
                   ACCEDI CON GOOGLE
                 </button>
-              </form>
-            </div>
+              </div>
+            ) : (
+              <>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px'}}>
+                  <p style={{fontSize: '0.8rem', marginBottom: '8px', fontWeight: 'bold'}}>UTILIZZA ACCOUNT DI TEST RAPIDO:</p>
+                  <button onClick={() => handleLogin('u1')} className="btn-bauhaus" style={{textAlign: 'left', display: 'block'}}>
+                    PAOLO ROSSI (UTENTE)
+                  </button>
+                  <button onClick={() => handleLogin('u2')} className="btn-bauhaus" style={{textAlign: 'left', display: 'block'}}>
+                    GIULIA BIANCHI (UTENTE)
+                  </button>
+                  <button onClick={() => handleLogin('u3')} className="btn-bauhaus btn-blue" style={{textAlign: 'left', display: 'block'}}>
+                    ORGANIZZATORE (ADMIN)
+                  </button>
+                </div>
+
+                <div style={{borderTop: '1px solid var(--white)', paddingTop: '16px'}}>
+                  <h4 style={{fontSize: '0.85rem', marginBottom: '12px', fontWeight: '900'}}>REGISTRA NUOVO OAUTH (MOCK):</h4>
+                  <form onSubmit={handleRegisterCustom}>
+                    <div style={{marginBottom: '10px'}}>
+                      <input 
+                        type="text" 
+                        placeholder="NOME COMPLETO" 
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        className="bauhaus-input"
+                        required
+                      />
+                    </div>
+                    <div style={{marginBottom: '16px'}}>
+                      <input 
+                        type="email" 
+                        placeholder="EMAIL" 
+                        value={customEmail}
+                        onChange={(e) => setCustomEmail(e.target.value)}
+                        className="bauhaus-input"
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="btn-bauhaus btn-blue">
+                      ACCEDI CON GOOGLE
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
             
             <button 
               onClick={() => setShowAuthModal(false)} 
@@ -958,7 +1012,7 @@ Moderazione
 
       {/* Footer */}
       <footer style={{textAlign: 'center', marginTop: '60px', padding: '20px 0', borderTop: '1px solid var(--white)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase'}}>
-        UNPLUGGED © 2026. LONGOBARDI. FORM FOLLOWS FUNCTION.
+        unplugged © 2026. idrabognol. attento cowboy
       </footer>
     </div>
   );
