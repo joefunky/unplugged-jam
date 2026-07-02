@@ -408,7 +408,7 @@ function App() {
                     className="btn-bauhaus btn-yellow"
                     style={{ fontSize: '1rem', letterSpacing: '0.05em', width: '100%', fontWeight: '900' }}
                   >
-                    🚀 PROPONI IL BRANO DELLA SETTIMANA
+                    PROPONI IL BRANO DELLA SETTIMANA
                   </button>
                 ) : (
                   <button
@@ -416,7 +416,7 @@ function App() {
                     className="btn-bauhaus"
                     style={{ fontSize: '0.95rem', letterSpacing: '0.05em', width: '100%', backgroundColor: '#2a2a2a', color: '#666', border: '1px solid #333', cursor: 'not-allowed', boxShadow: 'none' }}
                   >
-                    🔒 PROSSIMA PROPOSTA TRA: {countdownToReset}
+                    PROSSIMA PROPOSTA TRA: {countdownToReset}
                   </button>
                 )
               ) : (
@@ -425,7 +425,7 @@ function App() {
                   className="btn-bauhaus"
                   style={{ fontSize: '0.95rem', letterSpacing: '0.05em', width: '100%', backgroundColor: '#2a2a2a', color: '#888', border: '1px solid #333', boxShadow: 'none' }}
                 >
-                  🔒 ACCEDI PER PROPORRE IL BRANO
+                  ACCEDI PER PROPORRE IL BRANO
                 </button>
               )}
 
