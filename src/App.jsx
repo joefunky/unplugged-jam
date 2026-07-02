@@ -81,6 +81,10 @@ function App() {
 
   // Feedbacks (Toast notification)
   const [toast, setToast] = useState(null);
+  
+  // Weekly limits & countdown states
+  const [canProposeThisWeek, setCanProposeThisWeek] = useState(true);
+  const [countdownToReset, setCountdownToReset] = useState('');
 
   // Refresh lists
   const refreshData = useCallback(async () => {
@@ -111,6 +115,46 @@ function App() {
   useEffect(() => {
     refreshData();
   }, [currentUser, refreshData]);
+
+  // Monitor user's weekly proposals and run countdown timer
+  useEffect(() => {
+    const updateCountdownAndProposalLimit = () => {
+      // 1. Check weekly limit
+      if (!currentUser) {
+        setCanProposeThisWeek(false);
+        setCountdownToReset("ACCEDI PER PROPORRE");
+        return;
+      }
+      
+      const now = new Date();
+      // Get last Monday 00:00 UTC
+      const day = now.getUTCDay();
+      const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1);
+      const lastMonday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), diff, 0, 0, 0, 0));
+
+      const userProposals = proposals.filter(p => p.proposed_by === currentUser.id);
+      const proposedThisWeek = userProposals.some(p => new Date(p.proposed_at) >= lastMonday);
+      
+      setCanProposeThisWeek(!proposedThisWeek);
+
+      // 2. Calculate countdown to next Monday 00:00 UTC
+      const nextMonday = new Date(lastMonday.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const timeLeft = nextMonday - now;
+
+      if (timeLeft <= 0) {
+        setCountdownToReset('0g 0o 0m');
+      } else {
+        const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        setCountdownToReset(`${days}g ${hours}o ${minutes}m`);
+      }
+    };
+
+    updateCountdownAndProposalLimit();
+    const interval = setInterval(updateCountdownAndProposalLimit, 30000); // update every 30 seconds
+    return () => clearInterval(interval);
+  }, [currentUser, proposals]);
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -349,19 +393,50 @@ function App() {
             <h2 style={{marginBottom: '12px'}}>REGOLAMENTO</h2>
             <div style={{display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px'}}>
               <p style={{fontSize: '0.95rem'}}>
-                <strong>1. PROPOSTA:</strong> Ciascun utente registrato può suggerire al massimo <strong>una canzone a settimana</strong>. Il reset avviene il lunedì alle 00:00.
+                <strong>1. PROPONI:</strong> Accedi per suggerire una canzone a settimana fino alla scadenza delle votazioni.
               </p>
               <p style={{fontSize: '0.95rem'}}>
-                <strong>2. VOTO:</strong> Vota liberamente i brani che preferisci. Le <strong>20 canzoni più votate</strong> diventeranno la scaletta ufficiale. In caso di parità, vince la proposta inviata prima.
+                <strong>2. VOTA:</strong> Vota i brani che preferisci. Le 20 canzoni più votate diventeranno la scaletta ufficiale.
               </p>
             </div>
-            <button 
-              onClick={() => setActiveTab('leaderboard')} 
-              className="btn-bauhaus btn-blue"
-              style={{fontSize: '1rem', letterSpacing: '0.05em'}}
-            >
-              VAI ALLA CLASSIFICA →
-            </button>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
+              {currentUser ? (
+                canProposeThisWeek ? (
+                  <button
+                    onClick={() => setActiveTab('propose')}
+                    className="btn-bauhaus btn-yellow"
+                    style={{ fontSize: '1rem', letterSpacing: '0.05em', width: '100%', fontWeight: '900' }}
+                  >
+                    🚀 PROPONI IL BRANO DELLA SETTIMANA
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="btn-bauhaus"
+                    style={{ fontSize: '0.95rem', letterSpacing: '0.05em', width: '100%', backgroundColor: '#2a2a2a', color: '#666', border: '1px solid #333', cursor: 'not-allowed', boxShadow: 'none' }}
+                  >
+                    🔒 PROSSIMA PROPOSTA TRA: {countdownToReset}
+                  </button>
+                )
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="btn-bauhaus"
+                  style={{ fontSize: '0.95rem', letterSpacing: '0.05em', width: '100%', backgroundColor: '#2a2a2a', color: '#888', border: '1px solid #333', boxShadow: 'none' }}
+                >
+                  🔒 ACCEDI PER PROPORRE IL BRANO
+                </button>
+              )}
+
+              <button 
+                onClick={() => setActiveTab('leaderboard')} 
+                className="btn-bauhaus btn-blue"
+                style={{ fontSize: '1rem', letterSpacing: '0.05em', width: '100%' }}
+              >
+                VAI ALLA CLASSIFICA →
+              </button>
+            </div>
           </div>
         </div>
       ) : (

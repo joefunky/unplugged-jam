@@ -652,20 +652,20 @@ export const mockDb = {
     return [];
   },
 
-  // Search Deezer to resolve cover and preview metadata in background
+  // Search Deezer to resolve cover and preview metadata in background, with iTunes fallback
   resolveDeezerMetadata: async (title, artist) => {
+    // 1. Try Deezer first
     try {
       const query = encodeURIComponent(`${title} ${artist}`);
-      // JSONP to bypass CORS on Deezer API
-      return new Promise((resolve) => {
-        const callbackName = `deezer_cb_${Date.now()}`;
+      const deezerMeta = await new Promise((resolve) => {
+        const callbackName = `deezer_cb_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
         const script = document.createElement("script");
         
         const timer = setTimeout(() => {
           script.remove();
           delete window[callbackName];
           resolve(null);
-        }, 3000);
+        }, 2500);
 
         window[callbackName] = (data) => {
           clearTimeout(timer);
@@ -685,9 +685,35 @@ export const mockDb = {
         script.src = `https://api.deezer.com/search?q=${query}&limit=1&output=jsonp&callback=${callbackName}`;
         document.body.appendChild(script);
       });
+
+      if (deezerMeta && (deezerMeta.preview_url || deezerMeta.cover_url)) {
+        return deezerMeta;
+      }
     } catch (e) {
-      return null;
+      console.warn("Deezer metadata query failed, trying iTunes...", e);
     }
+
+    // 2. Try iTunes Search API (CORS-free, fast fallback for covers and previews)
+    try {
+      const cleanTitle = cleanSearchTerm(title);
+      const cleanArtist = cleanSearchTerm(artist);
+      const query = encodeURIComponent(`${cleanTitle} ${cleanArtist}`);
+      const res = await fetch(`https://itunes.apple.com/search?term=${query}&media=music&limit=1`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.results && data.results.length > 0) {
+          const track = data.results[0];
+          return {
+            cover_url: track.artworkUrl100 ? track.artworkUrl100.replace("100x100bb.jpg", "300x300bb.jpg") : "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=150",
+            preview_url: track.previewUrl || ""
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("iTunes metadata query failed:", e);
+    }
+
+    return null;
   },
 
   // Search Deezer via fast JSONP (no CORS proxy needed, executes instantly)
