@@ -103,7 +103,7 @@ function App() {
       }
       setCurrentUser(user);
       setShowAuthModal(false);
-      showToast(`UTENTE ${user.display_name.toUpperCase()} ACCEDUTO`, 'success');
+      showToast(`UTENTE ${user?.display_name?.toUpperCase() || ''} ACCEDUTO`, 'success');
     }
   };
 
@@ -120,9 +120,9 @@ function App() {
       setShowAuthModal(false);
       setCustomName('');
       setCustomEmail('');
-      showToast(`PROFILO CREATO: ${user.display_name.toUpperCase()}`, 'success');
+      showToast(`PROFILO CREATO: ${user?.display_name?.toUpperCase() || ''}`, 'success');
     } catch (err) {
-      showToast(err.message.toUpperCase(), "error");
+      showToast(err?.message?.toUpperCase() || '', "error");
     }
   };
 
@@ -179,7 +179,7 @@ function App() {
         showToast("VOTO RIMOSSO");
       }
     } catch (err) {
-      showToast(err.message.toUpperCase(), "error");
+      showToast(err?.message?.toUpperCase() || '', "error");
     }
   };
 
@@ -196,7 +196,7 @@ function App() {
         await refreshData();
         showToast("SEGNALAZIONE INVIATA", "success");
       } catch (err) {
-        showToast(err.message.toUpperCase(), "error");
+        showToast(err?.message?.toUpperCase() || '', "error");
       }
     }
   };
@@ -225,7 +225,7 @@ function App() {
       setActiveTab('home');
       showToast("PROPOSTA INVIATA CON SUCCESSO", "success");
     } catch (err) {
-      showToast(err.message.toUpperCase(), "error");
+      showToast(err?.message?.toUpperCase() || '', "error");
     }
   };
 
@@ -502,7 +502,7 @@ Moderazione
                               <div className="row-info">
                                 <div className="row-title">{song.title}</div>
                                 <div className="row-subtitle">
-                                  {song.artist} | PROP. DA {song.proposed_by_name.toUpperCase()}
+                                  {song.artist} | PROP. DA {(song.proposed_by_name || '')?.toUpperCase()}
                                 </div>
                                 {song.player_name && (
                                   <div style={{fontSize: '0.75rem', fontWeight: 'bold', marginTop: '2px', textTransform: 'uppercase'}}>
@@ -588,7 +588,7 @@ Moderazione
                                 <div className="row-info" style={{paddingLeft: '4px'}}>
                                   <div className="row-title">{song.title}</div>
                                   <div className="row-subtitle">
-                                    {song.artist} | PROP. DA {song.proposed_by_name.toUpperCase()}
+                                    {song.artist} | PROP. DA {(song.proposed_by_name || '')?.toUpperCase()}
                                   </div>
                                   <div style={{fontSize: '0.75rem', opacity: 0.6, marginTop: '2px'}}>
                                     INSERITA: {new Date(song.proposed_at).toLocaleDateString('it-IT')}
@@ -752,11 +752,11 @@ Moderazione
                               <div className="row-info" style={{paddingLeft: '4px'}}>
                                 <div className="row-title">{song.title}</div>
                                 <div className="row-subtitle">
-                                  {song.artist} | PROP: {song.proposed_by_name.toUpperCase()}
+                                  {song.artist} | PROP: {(song.proposed_by_name || '')?.toUpperCase()}
                                 </div>
                                 <div style={{fontSize: '0.75rem', opacity: 0.6, marginTop: '2px'}}>
                                   INSERITA: {new Date(song.proposed_at).toLocaleDateString('it-IT')}
-                                  {song.player_name && ` | 🎸 ${song.player_name.toUpperCase()} (${song.player_instrument.toUpperCase()})`}
+                                  {song.player_name && ` | 🎸 ${(song.player_name || '')?.toUpperCase()} (${(song.player_instrument || '')?.toUpperCase()})`}
                                 </div>
                               </div>
 
@@ -885,7 +885,7 @@ Moderazione
                         className="search-results-item"
                         onClick={() => setSelectedTrack(track)}
                       >
-                        <strong>{track.title.toUpperCase()}</strong> - {track.artist.toUpperCase()}
+                        <strong>{(track.title || '')?.toUpperCase()}</strong> - {(track.artist || '')?.toUpperCase()}
                       </div>
                     ))}
                   </div>
@@ -984,7 +984,7 @@ Moderazione
 
                 <div style={{marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.2)', paddingBottom: '16px', marginRight: '80px'}}>
                   <h3 style={{fontSize: '1.4rem', textTransform: 'uppercase'}}>{selectedKaraokeSong.title}</h3>
-                  <p style={{fontSize: '0.9rem', color: 'var(--charcoal)', fontWeight: 'bold'}}>{selectedKaraokeSong.artist.toUpperCase()}</p>
+                  <p style={{fontSize: '0.9rem', color: 'var(--charcoal)', fontWeight: 'bold'}}>{(selectedKaraokeSong.artist || '')?.toUpperCase()}</p>
                 </div>
 
                 {/* Chords Header Banner */}
