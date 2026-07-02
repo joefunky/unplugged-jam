@@ -1,0 +1,18 @@
+# ESEMPIO DI SPARTITO SINCRONIZZATO PER UNPLUGGED JAM
+# Istruzioni:
+# 1. Ogni riga che deve scorrere deve iniziare con un timestamp nel formato [minuti:secondi.centesimi]
+#    Esempio: [00:10.50] per far apparire la riga a 10 secondi e mezzo dall'inizio.
+# 2. Puoi inserire gli accordi racchiusi tra parentesi quadre prima o dentro le parole.
+#    Esempio: [DO] Lungo la strada [SOL] passeggiavamo insieme...
+# 3. Le righe che non iniziano con un timestamp verranno ignorate (utili per commenti o note).
+
+[00:01.00](Intro Strumentale - 5 secondi di prova)
+[00:06.00][DO] Lungo la strada [SOL] passeggiavamo insieme,
+[00:11.00][LAm] le onde del mare e [FA] l'accordo che sale.
+[00:16.00][DO] Sotto le stelle di [SOL] questa notte d'estate,
+[00:21.00][LAm] cantiamo forte le [FA] nostre canzoni preferite.
+[00:26.00](Ritornello)
+[00:28.00][DO] E si suona, [SOL] e si balla sulla sabbia!
+[00:33.00][LAm] Senza pensieri e [FA] senza più rabbia.
+[00:38.00][DO] Con una chitarra [SOL] e un cerchio di amici,
+[00:43.00][LAm] in questa notte ci [FA] sentiamo felici.

@@ -1,82 +1,55 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { mockDb } from './mockDb';
 import { isSupabaseConfigured } from './supabaseClient';
 import KaraokeLiveJam from './components/KaraokeLiveJam';
-import StripePaymentCheckout from './components/StripePaymentCheckout';
 
-const LYRICS_DATA = {
-  sole: [
-    { time: 0, text: "[LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi" },
-    { time: 3, text: "[LA] Le tue cal[MI]zette [RE] rosse [MI]" },
-    { time: 6, text: "[LA] E l'inno[MI]cenza su[RE]lle labbra [MI] tue" },
-    { time: 9, text: "[LA] Due aran[MI]ce ancor più [RE] rosse [MI]" },
-    { time: 12, text: "[LA] Ma la can[MI]zone del [RE] sole [MI]" },
-    { time: 15, text: "[LA] Cosa ne [MI] sa? [RE] [MI]" },
-    { time: 18, text: "[LA] Ma cosa [MI] ne sa di [RE] noi? [MI]" },
-    { time: 21, text: "[LA] E al cimitero [MI] dei [RE] fiori [MI]" },
-    { time: 24, text: "[LA] Un altro [MI] sole [RE] nascerà [MI]" }
-  ],
-  wonderwall: [
-    { time: 0, text: "[MIm7] Today is [SOL] gonna be the day" },
-    { time: 3, text: "That they're [RE] gonna throw it back to [LA7sus4] you" },
-    { time: 6, text: "[MIm7] By now you [SOL] should've somehow" },
-    { time: 9, text: "Real[RE]ized what you gotta [LA7sus4] do" },
-    { time: 12, text: "[DO] I don't believe that [RE] anybody" },
-    { time: 15, text: "[MIm7] Feels the way I [SOL] do about you [LA7sus4] now" },
-    { time: 18, text: "[DO] And backbeat, the [RE] word was on the [MIm7] street" },
-    { time: 21, text: "That the [SOL] fire in your heart is [LA7sus4] out" }
-  ],
-  box: [
-    { time: 0, text: "[MIm] I'm the man in the [SOL] box" },
-    { time: 3, text: "[RE] Buried in my [LA] shit" },
-    { time: 6, text: "[MIm] Won't you come and [SOL] save me?" },
-    { time: 9, text: "[RE] Save [LA] me" },
-    { time: 12, text: "(Ritornello)" },
-    { time: 14, text: "[MIm] Feed my [SOL] eyes, can you [RE] sew them [LA] shut?" },
-    { time: 18, text: "[MIm] Jesus [SOL] Christ, de[RE]ny your [LA] maker" },
-    { time: 22, text: "[MIm] He who [SOL] tries, will [RE] be [LA] wasted" },
-    { time: 26, text: "[MIm] Feed my [SOL] eyes, now you've [RE] sewn them [LA] shut" }
-  ],
-  fallback: [
-    { time: 0, text: "[DO] Lungo la strada [SOL] passeggiavamo insieme," },
-    { time: 3, text: "[LAM] le onde del mare e [FA] l'accordo che sale." },
-    { time: 6, text: "[DO] Sotto le stelle di [SOL] questa notte d'estate," },
-    { time: 9, text: "[LAM] cantiamo forte le [FA] nostre canzoni preferite." },
-    { time: 12, text: "(Ritornello)" },
-    { time: 15, text: "[DO] E si suona, [SOL] e si balla sulla sabbia!" },
-    { time: 18, text: "[LAM] Senza pensieri e [FA] senza più rabbia." },
-    { time: 21, text: "[DO] Con una chitarra [SOL] e un cerchio di amici," },
-    { time: 24, text: "[LAM] in questa notte ci [FA] sentiamo felici." }
-  ]
-};
+class KaraokeErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(err) { return { error: err }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: '40px', background: '#1a0000', border: '2px solid red', color: 'red', fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+          <strong>ERRORE KARAOKE:</strong>{'\n\n'}{this.state.error.toString()}{'\n\n'}{this.state.error.stack}
+          <br/><button onClick={() => this.setState({ error: null })} style={{ marginTop: '20px', padding: '8px 16px', cursor: 'pointer' }}>↩ Torna indietro</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
-const EVENT_DATE = new Date('2026-08-10T21:00:00');
-const VOTING_DEADLINE = new Date('2026-08-03T00:00:00');
+// Helper: Instrument icon badge
+function InstrumentBadge({ instrument }) {
+  if (!instrument) return null;
+  const map = {
+    'Chitarra': '🎸',
+    'Voce': '🎤',
+    'Percussioni': '🥁',
+    'Tastiere': '🎹',
+    'Altro': '🎶',
+  };
+  const emoji = map[instrument];
+  if (!emoji) return null;
+  return (
+    <span
+      title={instrument}
+      style={{
+        display: 'inline-block',
+        marginLeft: '6px',
+        fontSize: '0.95em',
+        verticalAlign: 'middle',
+        lineHeight: 1,
+      }}
+    >
+      {emoji}
+    </span>
+  );
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [currentUser, setCurrentUser] = useState(null);
-  const [forcedPhase, setForcedPhase] = useState(null);
-
-  const getAppPhase = () => {
-    if (forcedPhase !== null) return forcedPhase;
-    const params = new URLSearchParams(window.location.search);
-    const phaseParam = params.get('phase');
-    if (phaseParam === '1') return 1;
-    if (phaseParam === '2') return 2;
-    if (phaseParam === '3') return 3;
-
-    const now = new Date();
-    if (now < VOTING_DEADLINE) {
-      return 1;
-    } else if (now < EVENT_DATE) {
-      return 2;
-    } else {
-      return 3;
-    }
-  };
-
-  const currentPhase = getAppPhase();
   
   // Data States
   const [proposals, setProposals] = useState([]);
@@ -93,53 +66,13 @@ function App() {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [playerInstrument, setPlayerInstrument] = useState('Chitarra');
+  const [willPlay, setWillPlay] = useState(false); // Checkbox: 'Suoni con noi?'
+  
+  // Audio Player State
   const [playingId, setPlayingId] = useState(null);
   const audioRef = useRef(null);
-  const [karaokeTime, setKaraokeTime] = useState(0);
+
   const [selectedKaraokeSong, setSelectedKaraokeSong] = useState(null);
-  const [isKaraokeScrolling, setIsKaraokeScrolling] = useState(true);
-  
-  const [liveSession, setLiveSession] = useState({ active_song_id: null, started_at: null, is_playing: false });
-
-  // Auto-run timer when a karaoke song is opened
-  useEffect(() => {
-    let interval;
-    if ((currentPhase < 3 || currentUser?.is_admin) && selectedKaraokeSong && isKaraokeScrolling && activeTab === 'karaoke') {
-      interval = setInterval(() => {
-        setKaraokeTime(prev => prev + 0.1);
-      }, 100);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [selectedKaraokeSong, isKaraokeScrolling, activeTab, currentPhase, currentUser]);
-
-  // Poll live active song in Phase 3
-  useEffect(() => {
-    if (currentPhase !== 3) return;
-    
-    const updateSession = async () => {
-      const sess = await mockDb.getLiveActiveSong();
-      setLiveSession(sess);
-    };
-
-    updateSession();
-    const poll = setInterval(updateSession, 1500);
-    return () => clearInterval(poll);
-  }, [currentPhase]);
-
-  // Sync Singer's time in Phase 3 with Host start time
-  useEffect(() => {
-    if (currentPhase === 3 && !currentUser?.is_admin && liveSession.active_song_id && liveSession.started_at) {
-      const syncInterval = setInterval(() => {
-        const elapsed = (new Date().getTime() - new Date(liveSession.started_at).getTime()) / 1000;
-        setKaraokeTime(Math.max(0, elapsed));
-      }, 200);
-      return () => clearInterval(syncInterval);
-    } else if (currentPhase === 3 && !liveSession.active_song_id) {
-      setKaraokeTime(0);
-    }
-  }, [currentPhase, currentUser, liveSession]);
 
   // Authentication Dialog & Custom user registration
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -149,10 +82,8 @@ function App() {
   // Feedbacks (Toast notification)
   const [toast, setToast] = useState(null);
 
-
-
   // Refresh lists
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     const sorted = await mockDb.getSortedProposals();
     setProposals(sorted);
     if (currentUser) {
@@ -160,11 +91,8 @@ function App() {
       const reports = await mockDb.getUserReports(currentUser);
       setUserVotes(votes);
       setUserReports(reports);
-    } else {
-      setUserVotes([]);
-      setUserReports([]);
     }
-  };
+  }, [currentUser]);
 
   // Sync Auth User on Mount
   useEffect(() => {
@@ -182,7 +110,7 @@ function App() {
   // Sync Votes/Reports when user changes
   useEffect(() => {
     refreshData();
-  }, [currentUser]);
+  }, [currentUser, refreshData]);
 
   // Toast Helper
   const showToast = (message, type = 'success') => {
@@ -216,13 +144,9 @@ function App() {
   const handleLogin = async (userId) => {
     const user = await mockDb.login(userId);
     if (user) {
-      if (isSupabaseConfigured() && !userId) {
-        // OAuth redirect in progress
-        return;
-      }
       setCurrentUser(user);
       setShowAuthModal(false);
-      showToast(`UTENTE ${user?.display_name?.toUpperCase() || ''} ACCEDUTO`, 'success');
+      showToast(`UTENTE ${user.display_name.toUpperCase()} ACCEDUTO`, 'success');
     }
   };
 
@@ -239,9 +163,9 @@ function App() {
       setShowAuthModal(false);
       setCustomName('');
       setCustomEmail('');
-      showToast(`PROFILO CREATO: ${user?.display_name?.toUpperCase() || ''}`, 'success');
+      showToast(`PROFILO CREATO: ${user.display_name.toUpperCase()}`, 'success');
     } catch (err) {
-      showToast(err?.message?.toUpperCase() || '', "error");
+      showToast(err.message.toUpperCase(), "error");
     }
   };
 
@@ -259,28 +183,26 @@ function App() {
 
   // Music: Toggle preview play/pause
   const togglePlay = (id, previewUrl) => {
+    if (!previewUrl) {
+      showToast("ANTEPRIMA AUDIO NON DISPONIBILE", "error");
+      return;
+    }
+
     if (playingId === id) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      audioRef.current.pause();
       setPlayingId(null);
     } else {
       if (audioRef.current) {
         audioRef.current.pause();
       }
-      setKaraokeTime(0);
-      if (previewUrl) {
-        audioRef.current = new Audio(previewUrl);
-        audioRef.current.volume = 0.4;
-        audioRef.current.play().catch(e => console.warn("Audio play blocked", e));
-        audioRef.current.onended = () => {
-          setPlayingId(null);
-        };
-      } else {
-        audioRef.current = null;
-        showToast("AVVIATO SCORRIMENTO A TEMPO", "success");
-      }
+      audioRef.current = new Audio(previewUrl);
+      audioRef.current.volume = 0.4;
+      audioRef.current.play().catch(e => console.warn("Audio play blocked", e));
       setPlayingId(id);
+      
+      audioRef.current.onended = () => {
+        setPlayingId(null);
+      };
     }
   };
 
@@ -300,7 +222,7 @@ function App() {
         showToast("VOTO RIMOSSO");
       }
     } catch (err) {
-      showToast(err?.message?.toUpperCase() || '', "error");
+      showToast(err.message.toUpperCase(), "error");
     }
   };
 
@@ -317,7 +239,7 @@ function App() {
         await refreshData();
         showToast("SEGNALAZIONE INVIATA", "success");
       } catch (err) {
-        showToast(err?.message?.toUpperCase() || '', "error");
+        showToast(err.message.toUpperCase(), "error");
       }
     }
   };
@@ -334,8 +256,8 @@ function App() {
     try {
       const songData = {
         ...selectedTrack,
-        player_name: playerName,
-        player_instrument: playerName ? playerInstrument : ""
+        player_name: willPlay ? currentUser.display_name : "",
+        player_instrument: willPlay ? playerInstrument : ""
       };
 
       await mockDb.proposeSong(songData, currentUser);
@@ -343,10 +265,11 @@ function App() {
       setSelectedTrack(null);
       setSearchQuery('');
       setPlayerName('');
+      setWillPlay(false);
       setActiveTab('home');
       showToast("PROPOSTA INVIATA CON SUCCESSO", "success");
     } catch (err) {
-      showToast(err?.message?.toUpperCase() || '', "error");
+      showToast(err.message.toUpperCase(), "error");
     }
   };
 
@@ -373,103 +296,8 @@ function App() {
     showToast("SIMULAZIONE RESET COMPLETATA", "success");
   };
 
-  // Live Event Host Actions
-  const handleHostStartSong = async (song) => {
-    setSelectedKaraokeSong(song);
-    setPlayingId(song.id);
-    setKaraokeTime(0);
-    await mockDb.setLiveActiveSong(song.id, true);
-    showToast(`AVVIATO LIVE: ${song.title.toUpperCase()}`, "success");
-  };
-
-  const handleHostStopSong = async () => {
-    setSelectedKaraokeSong(null);
-    setPlayingId(null);
-    setKaraokeTime(0);
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    await mockDb.setLiveActiveSong(null, false);
-    showToast("LIVE JAM SOSPESA", "error");
-  };
-
   return (
     <div className="app-container">
-      {/* Admin Phase Switcher - Only visible to admin users for testing */}
-      {currentUser?.is_admin && (
-        <div style={{
-          backgroundColor: 'var(--bauhaus-yellow)',
-          color: 'black',
-          padding: '12px',
-          marginBottom: '20px',
-          border: '2px solid black',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '0.8rem',
-          fontWeight: 'bold'
-        }}>
-          <span>⚙️ MOCK LIFE-CYCLE (SOLO ADMIN):</span>
-          <div style={{display: 'flex', gap: '8px'}}>
-            <button 
-              onClick={() => { setForcedPhase(1); showToast("FASE 1: VOTO & PROPOSTA"); }} 
-              className="btn-bauhaus" 
-              style={{
-                backgroundColor: currentPhase === 1 ? 'black' : 'transparent',
-                color: currentPhase === 1 ? 'white' : 'black',
-                padding: '4px 8px',
-                fontSize: '0.75rem',
-                border: '1px solid black',
-                boxShadow: 'none'
-              }}
-            >
-              FASE 1 (VOTO)
-            </button>
-            <button 
-              onClick={() => { setForcedPhase(2); showToast("FASE 2: LEGGI / IMPARA"); }} 
-              className="btn-bauhaus" 
-              style={{
-                backgroundColor: currentPhase === 2 ? 'black' : 'transparent',
-                color: currentPhase === 2 ? 'white' : 'black',
-                padding: '4px 8px',
-                fontSize: '0.75rem',
-                border: '1px solid black',
-                boxShadow: 'none'
-              }}
-            >
-              FASE 2 (STUDIO)
-            </button>
-            <button 
-              onClick={() => { setForcedPhase(3); showToast("FASE 3: DRINKS AL BAR ATTIVI"); }} 
-              className="btn-bauhaus" 
-              style={{
-                backgroundColor: currentPhase === 3 ? 'black' : 'transparent',
-                color: currentPhase === 3 ? 'white' : 'black',
-                padding: '4px 8px',
-                fontSize: '0.75rem',
-                border: '1px solid black',
-                boxShadow: 'none'
-              }}
-            >
-              FASE 3 (EVENTO)
-            </button>
-            {forcedPhase !== null && (
-              <button 
-                onClick={() => { setForcedPhase(null); showToast("RIPRISTINATO TEMPO REALE"); }} 
-                className="btn-bauhaus btn-red" 
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '0.75rem',
-                  boxShadow: 'none'
-                }}
-              >
-                RESET
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Toast Alert */}
       {toast && (
         <div className={`toast-bauhaus ${toast.type === 'error' ? 'error' : ''}`}>
@@ -506,9 +334,6 @@ function App() {
           {/* Item 2: Title of the Event (No Longobardi) */}
           <header style={{marginBottom: '10px'}}>
             <h1>UNPLUGGED</h1>
-            <div style={{fontSize: '1.2rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--white)', marginTop: '-8px', marginBottom: '24px'}}>
-              jam in spiaggia
-            </div>
           </header>
 
           {/* Item 3: Phase and Countdown */}
@@ -522,11 +347,11 @@ function App() {
           {/* Item 5: Regulation & CTA button to Leaderboard */}
           <div style={{borderTop: '1px solid var(--white)', paddingTop: '24px'}}>
             <h2 style={{marginBottom: '12px'}}>REGOLAMENTO</h2>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '30px'}}>
-              <p style={{fontSize: '0.82rem', lineHeight: '1.25', opacity: 0.9}}>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px'}}>
+              <p style={{fontSize: '0.95rem'}}>
                 <strong>1. PROPOSTA:</strong> Ciascun utente registrato può suggerire al massimo <strong>una canzone a settimana</strong>. Il reset avviene il lunedì alle 00:00.
               </p>
-              <p style={{fontSize: '0.82rem', lineHeight: '1.25', opacity: 0.9}}>
+              <p style={{fontSize: '0.95rem'}}>
                 <strong>2. VOTO:</strong> Vota liberamente i brani che preferisci. Le <strong>20 canzoni più votate</strong> diventeranno la scaletta ufficiale. In caso di parità, vince la proposta inviata prima.
               </p>
             </div>
@@ -557,37 +382,18 @@ function App() {
             >
               Classifica
             </button>
-            {currentPhase === 1 && (
-              <button 
-                className={`tab-btn-bauhaus ${activeTab === 'propose' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('propose')}
-              >
-                Proponi
-              </button>
-            )}
-            {currentPhase >= 2 && (
-              <button 
-                className={`tab-btn-bauhaus ${activeTab === 'karaoke' ? 'active' : ''}`} 
-                onClick={() => {
-                  setActiveTab('karaoke');
-                  setSelectedKaraokeSong(null);
-                }}
-              >
-                🎤 Karaoke
-              </button>
-            )}
             <button 
-              className={`tab-btn-bauhaus ${activeTab === 'info' ? 'active' : ''}`} 
-              onClick={() => setActiveTab('info')}
+              className={`tab-btn-bauhaus ${activeTab === 'propose' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('propose')}
             >
-              Info
+              Proponi
             </button>
-            {currentPhase === 3 && (
+            {currentUser && currentUser.is_admin && (
               <button 
-                className={`tab-btn-bauhaus ${activeTab === 'support' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('support')}
+                className={`tab-btn-bauhaus ${activeTab === 'admin' ? 'active' : ''}`} 
+                onClick={() => setActiveTab('admin')}
               >
-                Drinks 💳
+                Moderazione
               </button>
             )}
           </div>
@@ -596,38 +402,6 @@ function App() {
             {/* TAB: LEADERBOARD */}
             {activeTab === 'leaderboard' && (
               <div>
-                {/* CTA Row to Propose a song */}
-                <div style={{
-                  backgroundColor: 'var(--bauhaus-blue)',
-                  color: 'white',
-                  padding: '12px 16px',
-                  marginBottom: '20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  fontSize: '0.8rem'
-                }}>
-                  <span>proponi il tuo brano settimanale e vota i tuoi brani preferiti!</span>
-                  <button 
-                    onClick={() => setActiveTab('propose')} 
-                    className="btn-bauhaus"
-                    style={{
-                      width: 'auto', 
-                      backgroundColor: 'var(--bauhaus-yellow)', 
-                      color: 'black', 
-                      padding: '6px 12px', 
-                      fontSize: '0.75rem',
-                      boxShadow: 'none',
-                      border: '1px solid black',
-                      fontWeight: '900'
-                    }}
-                  >
-                    PROPONI BRANO
-                  </button>
-                </div>
-
                 {/* Sub-Tabs Toggle (Three sections) */}
                 <div style={{display: 'flex', borderBottom: '1px solid var(--white)', marginBottom: '20px'}}>
                   <button 
@@ -707,57 +481,76 @@ function App() {
                           else if (index === 2) rankClass = "row-top-3";
 
                           return (
-                            <div 
-                              key={song.id} 
+                            <div
+                              key={song.id}
                               className={`row-item ${rankClass}`}
                               style={{ opacity: song.under_review ? 0.6 : 1 }}
                             >
+                              {/* Rank number */}
                               <div className="row-num">{index + 1}</div>
-                              
-                              <img 
-                                src={song.cover_url} 
-                                alt={song.title} 
-                                className="flat-cover" 
-                                style={{cursor: 'pointer'}}
-                                onClick={() => togglePlay(song.id, song.preview_url)}
-                              />
 
-                              <div className="row-info">
-                                <div className="row-title">{song.title}</div>
-                                <div className="row-subtitle">
-                                  {song.artist} | PROP. DA {(song.proposed_by_name || '')?.toUpperCase()}
-                                </div>
-                                {song.player_name && (
-                                  <div style={{fontSize: '0.75rem', fontWeight: 'bold', marginTop: '2px', textTransform: 'uppercase'}}>
-                                    🎸 STRUMENTISTA: {song.player_name} ({song.player_instrument})
-                                  </div>
+                              {/* Cover + Play/Stop button stacked */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                <img
+                                  src={song.cover_url}
+                                  alt={song.title}
+                                  className="flat-cover"
+                                  style={{ display: 'block' }}
+                                />
+                                {song.preview_url && (
+                                  <button
+                                    onClick={() => togglePlay(song.id, song.preview_url)}
+                                    className="row-btn-action"
+                                    style={{ fontSize: '0.65rem', padding: '2px 6px', width: '100%', textAlign: 'center' }}
+                                  >
+                                    {isPlaying ? '■ STOP' : '▶ PLAY'}
+                                  </button>
                                 )}
                               </div>
 
-                              <div className="row-actions">
-                                {song.preview_url && (
-                                  <button onClick={() => togglePlay(song.id, song.preview_url)} className="row-btn-action">
-                                    {isPlaying ? '[STOP]' : '[PLAY]'}
-                                  </button>
-                                )}
+                              {/* Info block */}
+                              <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
+                                <div className="row-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>
+                                  {song.title}
+                                  {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
+                                </div>
+                                <div className="row-subtitle">{song.artist}</div>
+                                <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                  PROP. DA {song.proposed_by_name.toUpperCase()}
+                                </div>
+                              </div>
+
+                              {/* Compact actions: vote + report + pratica */}
+                              <div className="row-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                                <button onClick={() => handleVote(song.id)} className={`row-btn-vote ${isVoted ? 'voted' : ''}`}>
+                                  {isVoted ? '♥' : 'VOTA'}
+                                </button>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '900' }}>
+                                  {song.votes_count}
+                                </span>
+                                
+                                <button
+                                  onClick={() => {
+                                    setSelectedKaraokeSong(song);
+                                    setActiveTab('karaoke');
+                                  }}
+                                  className="btn-bauhaus btn-blue"
+                                  style={{ width: 'auto', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 'bold', boxShadow: 'none', marginTop: '2px', textTransform: 'uppercase' }}
+                                >
+                                  🎤 Pratica
+                                </button>
+
                                 {!currentUser?.is_admin && (
-                                  <button 
-                                    onClick={() => handleReport(song.id)} 
+                                  <button
+                                    onClick={() => handleReport(song.id)}
                                     className="row-btn-action"
-                                    style={{color: isReported ? 'var(--bauhaus-red)' : 'inherit'}}
+                                    style={{ color: isReported ? 'var(--bauhaus-red)' : 'inherit', fontSize: '0.7rem', padding: '2px 5px', marginTop: '1px' }}
                                     disabled={isReported}
+                                    title="Segnala come non acustico"
                                   >
                                     [!]
                                   </button>
                                 )}
-                                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                                  <button onClick={() => handleVote(song.id)} className={`row-btn-vote ${isVoted ? 'voted' : ''}`}>
-                                    {isVoted ? '♥' : 'VOTA'}
-                                  </button>
-                                  <span style={{fontSize: '0.8rem', fontWeight: '900', marginTop: '2px'}}>
-                                    {song.votes_count}
-                                  </span>
-                                </div>
                               </div>
                             </div>
                           );
@@ -795,53 +588,61 @@ function App() {
                             const isPlaying = playingId === song.id;
 
                             return (
-                              <div 
-                                key={song.id} 
+                              <div
+                                key={song.id}
                                 className="row-item"
                                 style={{ opacity: song.under_review ? 0.6 : 1 }}
                               >
-                                <img 
-                                  src={song.cover_url} 
-                                  alt={song.title} 
-                                  className="flat-cover" 
-                                  style={{cursor: 'pointer'}}
-                                  onClick={() => togglePlay(song.id, song.preview_url)}
-                                />
+                                {/* Cover + Play/Stop stacked */}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                  <img
+                                    src={song.cover_url}
+                                    alt={song.title}
+                                    className="flat-cover"
+                                    style={{ display: 'block' }}
+                                  />
+                                  {song.preview_url && (
+                                    <button
+                                      onClick={() => togglePlay(song.id, song.preview_url)}
+                                      className="row-btn-action"
+                                      style={{ fontSize: '0.65rem', padding: '2px 6px', width: '100%', textAlign: 'center' }}
+                                    >
+                                      {isPlaying ? '■ STOP' : '▶ PLAY'}
+                                    </button>
+                                  )}
+                                </div>
 
-                                <div className="row-info" style={{paddingLeft: '4px'}}>
-                                  <div className="row-title">{song.title}</div>
-                                  <div className="row-subtitle">
-                                    {song.artist} | PROP. DA {(song.proposed_by_name || '')?.toUpperCase()}
+                                {/* Info block */}
+                                <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
+                                  <div className="row-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>
+                                    {song.title}
+                                    {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                   </div>
-                                  <div style={{fontSize: '0.75rem', opacity: 0.6, marginTop: '2px'}}>
-                                    INSERITA: {new Date(song.proposed_at).toLocaleDateString('it-IT')}
+                                  <div className="row-subtitle">{song.artist}</div>
+                                  <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                    PROP. DA {song.proposed_by_name.toUpperCase()}
                                   </div>
                                 </div>
 
-                                <div className="row-actions">
-                                  {song.preview_url && (
-                                    <button onClick={() => togglePlay(song.id, song.preview_url)} className="row-btn-action">
-                                      {isPlaying ? '[STOP]' : '[PLAY]'}
-                                    </button>
-                                  )}
+                                {/* Compact actions */}
+                                <div className="row-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                  <button onClick={() => handleVote(song.id)} className={`row-btn-vote ${isVoted ? 'voted' : ''}`}>
+                                    {isVoted ? '♥' : 'VOTA'}
+                                  </button>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: '900' }}>
+                                    {song.votes_count}
+                                  </span>
                                   {!currentUser?.is_admin && (
-                                    <button 
-                                      onClick={() => handleReport(song.id)} 
+                                    <button
+                                      onClick={() => handleReport(song.id)}
                                       className="row-btn-action"
-                                      style={{color: isReported ? 'var(--bauhaus-red)' : 'inherit'}}
+                                      style={{ color: isReported ? 'var(--bauhaus-red)' : 'inherit', fontSize: '0.7rem', padding: '2px 5px', marginTop: '2px' }}
                                       disabled={isReported}
+                                      title="Segnala come non acustico"
                                     >
                                       [!]
                                     </button>
                                   )}
-                                  <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                                    <button onClick={() => handleVote(song.id)} className={`row-btn-vote ${isVoted ? 'voted' : ''}`}>
-                                      {isVoted ? '♥' : 'VOTA'}
-                                    </button>
-                                    <span style={{fontSize: '0.8rem', fontWeight: '900', marginTop: '2px'}}>
-                                      {song.votes_count}
-                                    </span>
-                                  </div>
                                 </div>
                               </div>
                             );
@@ -964,49 +765,68 @@ function App() {
                               className="row-item"
                               style={{ opacity: song.under_review ? 0.6 : 1 }}
                             >
-                              <img 
-                                src={song.cover_url} 
-                                alt={song.title} 
-                                className="flat-cover" 
-                                style={{cursor: 'pointer'}}
-                                onClick={() => togglePlay(song.id, song.preview_url)}
-                              />
+                              {/* Cover + Play/Stop stacked */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                <img
+                                  src={song.cover_url}
+                                  alt={song.title}
+                                  className="flat-cover"
+                                  style={{ display: 'block' }}
+                                />
+                                {song.preview_url && (
+                                  <button
+                                    onClick={() => togglePlay(song.id, song.preview_url)}
+                                    className="row-btn-action"
+                                    style={{ fontSize: '0.65rem', padding: '2px 6px', width: '100%', textAlign: 'center' }}
+                                  >
+                                    {isPlaying ? '■ STOP' : '▶ PLAY'}
+                                  </button>
+                                )}
+                              </div>
 
-                              <div className="row-info" style={{paddingLeft: '4px'}}>
-                                <div className="row-title">{song.title}</div>
-                                <div className="row-subtitle">
-                                  {song.artist} | PROP: {(song.proposed_by_name || '')?.toUpperCase()}
+                              {/* Info block */}
+                              <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
+                                <div className="row-title" style={{ whiteSpace: 'normal', overflow: 'visible' }}>
+                                  {song.title}
+                                  {song.player_instrument && <InstrumentBadge instrument={song.player_instrument} />}
                                 </div>
-                                <div style={{fontSize: '0.75rem', opacity: 0.6, marginTop: '2px'}}>
-                                  INSERITA: {new Date(song.proposed_at).toLocaleDateString('it-IT')}
-                                  {song.player_name && ` | 🎸 ${(song.player_name || '')?.toUpperCase()} (${(song.player_instrument || '')?.toUpperCase()})`}
+                                <div className="row-subtitle">{song.artist}</div>
+                                <div style={{ fontSize: '0.72rem', fontWeight: '700', marginTop: '3px', opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                  PROP. DA {song.proposed_by_name.toUpperCase()}
                                 </div>
                               </div>
 
-                              <div className="row-actions">
-                                {song.preview_url && (
-                                  <button onClick={() => togglePlay(song.id, song.preview_url)} className="row-btn-action">
-                                    {isPlaying ? '[STOP]' : '[PLAY]'}
-                                  </button>
-                                )}
+                              {/* Compact actions: vote + report + pratica */}
+                              <div className="row-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                                <button onClick={() => handleVote(song.id)} className={`row-btn-vote ${isVoted ? 'voted' : ''}`}>
+                                  {isVoted ? '♥' : 'VOTA'}
+                                </button>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '900' }}>
+                                  {song.votes_count}
+                                </span>
+                                
+                                <button
+                                  onClick={() => {
+                                    setSelectedKaraokeSong(song);
+                                    setActiveTab('karaoke');
+                                  }}
+                                  className="btn-bauhaus btn-blue"
+                                  style={{ width: 'auto', padding: '3px 8px', fontSize: '0.65rem', fontWeight: 'bold', boxShadow: 'none', marginTop: '2px', textTransform: 'uppercase' }}
+                                >
+                                  🎤 Pratica
+                                </button>
+
                                 {!currentUser?.is_admin && (
-                                  <button 
-                                    onClick={() => handleReport(song.id)} 
+                                  <button
+                                    onClick={() => handleReport(song.id)}
                                     className="row-btn-action"
-                                    style={{color: isReported ? 'var(--bauhaus-red)' : 'inherit'}}
+                                    style={{ color: isReported ? 'var(--bauhaus-red)' : 'inherit', fontSize: '0.7rem', padding: '2px 5px', marginTop: '1px' }}
                                     disabled={isReported}
+                                    title="Segnala come non acustico"
                                   >
                                     [!]
                                   </button>
                                 )}
-                                <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                                  <button onClick={() => handleVote(song.id)} className={`row-btn-vote ${isVoted ? 'voted' : ''}`}>
-                                    {isVoted ? '♥' : 'VOTA'}
-                                  </button>
-                                  <span style={{fontSize: '0.8rem', fontWeight: '900', marginTop: '2px'}}>
-                                    {song.votes_count}
-                                  </span>
-                                </div>
                               </div>
                             </div>
                           );
@@ -1032,8 +852,7 @@ function App() {
               /* Submission details form */
               <div style={{paddingTop: '10px'}}>
                 <h3 style={{marginBottom: '16px'}}>Dettagli Esecuzione</h3>
-                
-                <div style={{display: 'flex', gap: '12px', borderBottom: '1px solid var(--white)', paddingBottom: '12px', marginBottom: '20px'}}>
+                    <div style={{display: 'flex', gap: '12px', borderBottom: '1px solid var(--white)', paddingBottom: '12px', marginBottom: '20px'}}>
                   <img src={selectedTrack.cover_url} alt={selectedTrack.title} className="flat-cover" style={{width: '60px', height: '60px'}} />
                   <div>
                     <div style={{fontWeight: '900', textTransform: 'uppercase'}}>{selectedTrack.title}</div>
@@ -1042,19 +861,21 @@ function App() {
                 </div>
 
                 <form onSubmit={handlePropose}>
-                  <div style={{marginBottom: '16px'}}>
-                    <label className="bauhaus-label">Ti proponi per suonarlo tu? (Nome)</label>
+                  <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => setWillPlay(!willPlay)}>
                     <input 
-                      type="text" 
-                      placeholder="ES. MARCO R." 
-                      value={playerName}
-                      onChange={(e) => setPlayerName(e.target.value)}
-                      className="bauhaus-input"
+                      type="checkbox" 
+                      id="willPlayCheck"
+                      checked={willPlay}
+                      onChange={(e) => setWillPlay(e.target.checked)}
+                      style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                     />
+                    <label htmlFor="willPlayCheck" style={{ fontWeight: '700', fontSize: '0.9rem', cursor: 'pointer', textTransform: 'uppercase' }}>
+                      Suoni con noi?
+                    </label>
                   </div>
 
-                  {playerName && (
-                    <div style={{marginBottom: '20px'}}>
+                  {willPlay && (
+                    <div style={{ marginBottom: '20px' }}>
                       <label className="bauhaus-label">Strumento musicale</label>
                       <select 
                         value={playerInstrument} 
@@ -1108,7 +929,7 @@ function App() {
                         className="search-results-item"
                         onClick={() => setSelectedTrack(track)}
                       >
-                        <strong>{(track.title || '')?.toUpperCase()}</strong> - {(track.artist || '')?.toUpperCase()}
+                        <strong>{track.title.toUpperCase()}</strong> - {track.artist.toUpperCase()}
                       </div>
                     ))}
                   </div>
@@ -1124,199 +945,121 @@ function App() {
           </div>
         )}
 
-
-
-        {/* TAB 4: KARAOKE LIVE */}
+        {/* TAB: KARAOKE LIVE */}
         {activeTab === 'karaoke' && (
-          <div>
-            <div style={{borderBottom: '1px solid var(--white)', paddingBottom: '16px', marginBottom: '24px'}}>
-              <h2>KARAOKE ACUSTICO</h2>
-              <p style={{marginTop: '6px', fontSize: '0.9rem'}}>
-                {currentPhase === 3 ? 'Live Session: cantiamo e suoniamo tutti insieme allineati al chitarrista.' : 'Studio & Esercitazione: impara i testi e gli accordi per chitarra dei brani proposti.'}
-              </p>
-            </div>
-
-            {currentPhase === 3 ? (
-              /* Phase 3: Centralized Live Event Jam */
-              currentUser?.is_admin ? (
-                /* HOST / CHITARRISTA VIEW */
-                selectedKaraokeSong ? (
-                  <div>
-                    <div style={{ backgroundColor: 'var(--bauhaus-red)', color: 'white', padding: '10px 16px', marginBottom: '16px', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                      📢 SEI L'HOST DELLA SESSIONE. IL TUO SPARTITO STA CONTROLLANDO I DISPOSITIVI DI TUTTI GLI INVITATI.
-                    </div>
-                    <KaraokeLiveJam
-                      song={selectedKaraokeSong}
-                      isScrolling={isKaraokeScrolling}
-                      onToggleScroll={() => setIsKaraokeScrolling(!isKaraokeScrolling)}
-                      onTimeUpdate={(t) => setKaraokeTime(t)}
-                      karaokeTime={karaokeTime}
-                      onClose={handleHostStopSong}
-                    />
+          selectedKaraokeSong ? (
+            <KaraokeErrorBoundary>
+              <KaraokeLiveJam 
+                song={selectedKaraokeSong} 
+                isHost={true} 
+                onClose={() => {
+                  setSelectedKaraokeSong(null);
+                  setActiveTab('leaderboard');
+                }}
+              />
+            </KaraokeErrorBoundary>
+          ) : (
+            <div>
+              <div style={{borderBottom: '1px solid var(--white)', paddingBottom: '16px', marginBottom: '24px'}}>
+                <h2>KARAOKE LIVE IN CLASSIFICA</h2>
+                <p style={{marginTop: '6px', fontSize: '0.9rem'}}>
+                  Seleziona uno dei brani votati nella classifica per caricarne automaticamente il file .kar e riprodurlo.
+                </p>
+              </div>
+              <div>
+                {proposals.length === 0 ? (
+                  <div style={{textAlign: 'center', padding: '40px 0', border: '1px dashed var(--white)'}}>
+                    <p style={{fontWeight: 'bold'}}>NESSUNA CANZONE DISPONIBILE NELLA SCALETTA.</p>
                   </div>
                 ) : (
                   <div>
-                    <p style={{fontSize: '0.85rem', color: 'var(--charcoal)', marginBottom: '16px'}}>
-                      SEI LOGGATO COME CHITARRISTA (ADMIN). AVVIA UNA DELLE CANZONI DELLA TOP 20 PER PROIETTARE LO SPARTITO LIVE AI PARTECIPANTI:
-                    </p>
-                    <div>
-                      {proposals.map((song, index) => (
-                        <div 
-                          key={song.id} 
-                          className="row-item"
-                          style={{cursor: 'pointer'}}
-                          onClick={() => handleHostStartSong(song)}
-                        >
-                          <div className="row-num">{index + 1}</div>
-                          <img src={song.cover_url} alt={song.title} className="flat-cover" />
-                          <div className="row-info">
-                            <div className="row-title" style={{textTransform: 'uppercase'}}>{song.title}</div>
-                            <div className="row-subtitle">{song.artist} | VOTI: {song.votes_count}</div>
-                          </div>
-                          <div className="row-actions">
-                            <button 
-                              className="btn-bauhaus btn-red"
-                              style={{width: 'auto', padding: '6px 12px', fontSize: '0.75rem', boxShadow: 'none'}}
-                            >
-                              AVVIA LIVE 🎤
-                            </button>
-                          </div>
+                    {proposals.map((song, index) => (
+                      <div 
+                        key={song.id} 
+                        className="row-item"
+                        style={{cursor: 'pointer'}}
+                        onClick={() => setSelectedKaraokeSong(song)}
+                      >
+                        <div className="row-num">{index + 1}</div>
+                        <img src={song.cover_url} alt={song.title} className="flat-cover" />
+                        <div className="row-info">
+                          <div className="row-title" style={{textTransform: 'uppercase'}}>{song.title}</div>
+                          <div className="row-subtitle">{song.artist} | VOTI: {song.votes_count}</div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              ) : (
-                /* SINGER / SINTONIZZATO VIEW (Public) */
-                liveSession.active_song_id ? (() => {
-                  const liveSong = proposals.find(p => p.id === liveSession.active_song_id);
-                  if (!liveSong) return <div>Caricamento brano live in corso...</div>;
-                  return (
-                    <div>
-                      <div style={{ backgroundColor: 'var(--bauhaus-blue)', color: 'white', padding: '10px 16px', marginBottom: '16px', fontWeight: 'bold', fontSize: '0.85rem' }}>
-                        🔴 CONNESSO ALLA JAM LIVE! IL TUO SPARTITO È SINCRONIZZATO IN TEMPO REALE CON IL CHITARRISTA.
-                      </div>
-                      <KaraokeLiveJam
-                        song={liveSong}
-                        isScrolling={true}
-                        onToggleScroll={null}
-                        karaokeTime={karaokeTime}
-                        onClose={null}
-                      />
-                    </div>
-                  );
-                })() : (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed var(--white)', backgroundColor: '#050505' }}>
-                    <h3 style={{ fontSize: '1.4rem', color: 'var(--bauhaus-yellow)', textTransform: 'uppercase', marginBottom: '12px' }}>UNPLUGGED LIVE JAM</h3>
-                    <p style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      🌊 Sintonizzato sulla spiaggia... In attesa del chitarrista.
-                    </p>
-                    <div style={{ marginTop: '24px', fontSize: '0.8rem', opacity: 0.6 }}>
-                      Rilassati e prepara la voce. Lo schermo si sincronizzerà da solo all'avvio del coro!
-                    </div>
-                  </div>
-                )
-              )
-            ) : (
-              /* Phase 2: Practice & Studio View (Free Selection) */
-              selectedKaraokeSong ? (
-                <KaraokeLiveJam
-                  song={selectedKaraokeSong}
-                  isScrolling={isKaraokeScrolling}
-                  onToggleScroll={() => setIsKaraokeScrolling(!isKaraokeScrolling)}
-                  onTimeUpdate={(t) => setKaraokeTime(t)}
-                  karaokeTime={karaokeTime}
-                  onClose={() => setSelectedKaraokeSong(null)}
-                />
-              ) : (
-                <div>
-                  {proposals.length === 0 ? (
-                    <div style={{textAlign: 'center', padding: '40px 0', border: '1px dashed var(--white)'}}>
-                      <p style={{fontWeight: 'bold'}}>NESSUNA CANZONE DISPONIBILE NELLA SCALETTA.</p>
-                      <p style={{fontSize: '0.85rem', color: 'var(--charcoal)', marginTop: '8px'}}>
-                        Proponi e vota canzoni nella Classifica per farle comparire qui!
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p style={{fontSize: '0.85rem', color: 'var(--charcoal)', marginBottom: '16px'}}>
-                        Seleziona uno dei brani proposti in scaletta per esercitarti con accordi e testo:
-                      </p>
-                      <div>
-                        {proposals.map((song, index) => (
-                          <div 
-                            key={song.id} 
-                            className="row-item"
-                            style={{cursor: 'pointer'}}
-                            onClick={() => {
-                              setSelectedKaraokeSong(song);
-                              setKaraokeTime(0);
-                              setIsKaraokeScrolling(true);
-                            }}
+                        <div className="row-actions">
+                          <button 
+                            className="btn-bauhaus btn-blue"
+                            style={{width: 'auto', padding: '6px 12px', fontSize: '0.75rem', boxShadow: 'none'}}
                           >
-                            <div className="row-num">{index + 1}</div>
-                            <img src={song.cover_url} alt={song.title} className="flat-cover" />
-                            <div className="row-info">
-                              <div className="row-title" style={{textTransform: 'uppercase'}}>{song.title}</div>
-                              <div className="row-subtitle">{song.artist} | VOTI: {song.votes_count}</div>
-                            </div>
-                            <div className="row-actions">
-                              <button 
-                                className="btn-bauhaus btn-blue"
-                                style={{width: 'auto', padding: '6px 12px', fontSize: '0.75rem', boxShadow: 'none'}}
-                              >
-                                ESERCITATI / STUDIO
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                            AVVIA KARAOKE 🎤
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-          </div>
-        )}
-
-        {/* TAB 5: INFO EVENTO */}
-        {activeTab === 'info' && (
-          <div>
-            <div style={{borderBottom: '1px solid var(--white)', paddingBottom: '16px', marginBottom: '24px'}}>
-              <h2>DETTAGLI JAM</h2>
-              <p style={{marginTop: '6px', fontSize: '0.9rem'}}>
-                Informazioni pratiche e logistica per la serata dell'evento.
-              </p>
-            </div>
-
-              <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                <div style={{borderLeft: '4px solid var(--bauhaus-blue)', paddingLeft: '16px'}}>
-                  <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>LUOGO EVENTO</span>
-                  <strong style={{fontSize: '1.15rem', textTransform: 'uppercase'}}>metallica aru pontinu</strong>
-                </div>
-
-                <div style={{borderLeft: '4px solid var(--bauhaus-yellow)', paddingLeft: '16px'}}>
-                  <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>DATA & ORA</span>
-                  <strong style={{fontSize: '1.15rem', textTransform: 'uppercase'}}>tba (da definire)</strong>
-                </div>
-
-                <div style={{borderLeft: '4px solid var(--white)', paddingLeft: '16px'}}>
-                  <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>COSA PORTARE</span>
-                  <p style={{fontSize: '0.95rem', margin: '4px 0 0 0'}}>Chitarre acustiche, percussioni portatili (tamburelli, cajon), teli mare, e tante patatine!</p>
-                </div>
-
-                <div style={{borderLeft: '4px solid var(--white)', paddingLeft: '16px'}}>
-                  <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--charcoal)', display: 'block', textTransform: 'uppercase', marginBottom: '4px'}}>BEVANDE & CIBO</span>
-                  <p style={{fontSize: '0.95rem', margin: '4px 0 0 0'}}>Bar in loco ma feel free to bring your own.</p>
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          )
+        )}
 
-            {/* TAB 6: SUPPORT / DONATE */}
-            {activeTab === 'support' && (
-              <StripePaymentCheckout />
-            )}
+
+        {/* TAB 3: ADMIN/MODERATION */}
+        {activeTab === 'admin' && currentUser?.is_admin && (
+          <div>
+            <div style={{borderBottom: '1px solid var(--white)', paddingBottom: '16px', marginBottom: '24px'}}>
+              <h2>MODERAZIONE</h2>
+              <p style={{marginTop: '6px'}}>Rassegna dei brani segnalati come non adatti.</p>
+            </div>
+
+            <div style={{ marginBottom: '24px', padding: '16px', border: '1px dashed var(--white)' }}>
+              <h3 style={{ fontSize: '0.95rem', marginBottom: '8px', fontWeight: 'bold' }}>STRUMENTI DI DEBUG</h3>
+              <button 
+                onClick={handleDebugFastForward} 
+                className="btn-bauhaus btn-yellow" 
+                style={{ fontSize: '0.85rem', width: 'auto', padding: '8px 16px', boxShadow: 'none' }}
+              >
+                AVANZA TEMPO DI 1 SETTIMANA (SIMULAZIONE RESET)
+              </button>
+            </div>
+
+            <div>
+              {proposals.filter(p => p.under_review).length === 0 ? (
+                <div style={{textAlign: 'center', padding: '40px 0'}}>
+                  <p>NESSUN BRANO SOTTO REVISIONE.</p>
+                </div>
+              ) : (
+                proposals.filter(p => p.under_review).map((song) => (
+                  <div key={song.id} className="row-item" style={{borderLeft: '8px solid var(--bauhaus-red)'}}>
+                    <div className="row-info">
+                      <div className="row-title">{song.title}</div>
+                      <div className="row-subtitle">
+                        {song.artist} | SEGNALAZIONI: {song.review_count}
+                      </div>
+                    </div>
+
+                    <div style={{display: 'flex', gap: '8px'}}>
+                      <button 
+                        onClick={() => handleAdminApprove(song.id)}
+                        className="btn-bauhaus btn-blue"
+                        style={{padding: '6px 12px', fontSize: '0.8rem', boxShadow: 'none'}}
+                      >
+                        CONVALIDA
+                      </button>
+                      <button 
+                        onClick={() => handleAdminDelete(song.id)}
+                        className="btn-bauhaus btn-red"
+                        style={{padding: '6px 12px', fontSize: '0.8rem', boxShadow: 'none'}}
+                      >
+                        ELIMINA
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )}
@@ -1332,25 +1075,9 @@ function App() {
                 <p style={{fontSize: '0.9rem', marginBottom: '16px', color: 'var(--charcoal)', textTransform: 'uppercase'}}>
                   ACCEDI CON IL TUO ACCOUNT GOOGLE UFFICIALE:
                 </p>
-                <button onClick={() => handleLogin()} className="btn-bauhaus btn-blue" style={{marginBottom: '20px'}}>
+                <button onClick={() => handleLogin()} className="btn-bauhaus btn-blue">
                   ACCEDI CON GOOGLE
                 </button>
-
-                {import.meta.env.DEV && (
-                  <div style={{borderTop: '1px dashed var(--white)', paddingTop: '16px', marginTop: '16px'}}>
-                    <p style={{fontSize: '0.8rem', marginBottom: '8px', fontWeight: 'bold', color: 'var(--bauhaus-yellow)'}}>
-                      [MODALITÀ SVILUPPO] ACCESSO RAPIDO ADMIN/UTENTE:
-                    </p>
-                    <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                      <button onClick={() => handleLogin('u3')} className="btn-bauhaus btn-blue" style={{textAlign: 'left', display: 'block', boxShadow: 'none'}}>
-                        ORGANIZZATORE (ADMIN DI TEST)
-                      </button>
-                      <button onClick={() => handleLogin('u1')} className="btn-bauhaus" style={{textAlign: 'left', display: 'block', boxShadow: 'none'}}>
-                        PAOLO ROSSI (UTENTE DI TEST)
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <>
@@ -1411,7 +1138,7 @@ function App() {
 
       {/* Footer */}
       <footer style={{textAlign: 'center', marginTop: '60px', padding: '20px 0', borderTop: '1px solid var(--white)', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase'}}>
-        unplugged © 2026. idrabognol. attento cowboy
+        UNPLUGGED © 2026. LONGOBARDI. FORM FOLLOWS FUNCTION.
       </footer>
     </div>
   );

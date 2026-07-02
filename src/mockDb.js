@@ -1,15 +1,212 @@
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
+// Helper to clean titles and artists from common noise (remaster, live, features, extra punctuation)
+function cleanSearchTerm(term) {
+  if (!term) return '';
+  return term
+    .replace(/\([^)]*\)/g, '') // remove anything inside parentheses: (Live), (Remastered)
+    .replace(/\[[^\]]*\]/g, '') // remove anything inside brackets
+    .replace(/\s-\s.*/g, '') // remove trailing dash details: - Remastered 2011, - Live
+    .replace(/feat\..*/gi, '') // remove features
+    .replace(/ft\..*/gi, '')
+    .replace(/[?.,\/#!$%\^&\*;:{}=\-_`~()]/g, '') // remove punctuation like ? in "Il coccodrillo come fa?"
+    .replace(/\s+/g, ' ') // collapse multiple spaces
+    .trim();
+}
+
+// Helper to fetch lyrics from LRCLIB and inject standard chords in real-time
+async function fetchLyricsAndChords(title, artist) {
+  const cleanTitle = cleanSearchTerm(title);
+  const cleanArtist = cleanSearchTerm(artist);
+  
+  // Try search variations: 1. Clean Title + Clean Artist, 2. Clean Title only
+  const queries = [
+    `${cleanTitle} ${cleanArtist}`,
+    cleanTitle
+  ];
+
+  for (const query of queries) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 seconds timeout
+
+      const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const wrapper = await res.json();
+        const data = JSON.parse(wrapper.contents);
+        if (Array.isArray(data) && data.length > 0) {
+          // Find first result that has synced lyrics
+          const match = data.find(item => item.syncedLyrics);
+          if (match && match.syncedLyrics) {
+            const lines = match.syncedLyrics.split('\n');
+            const chords = ['[LA]', '[MI]', '[RE]', '[SOL]', '[DO]', '[LAm]', '[MIm]', '[SIm]'];
+            let chordIdx = 0;
+
+            const processed = lines.map((line) => {
+              const m = line.match(/^\[(\d{2}):(\d{2})\.(\d{2})\](.*)/);
+              if (!m) return line;
+              const text = m[4].trim();
+              if (!text || text.startsWith('(')) return line;
+
+              // Inject chords dynamically into lyrics text
+              const words = text.split(' ');
+              if (words.length > 2) {
+                const c1 = chords[chordIdx % chords.length]; chordIdx++;
+                const c2 = chords[chordIdx % chords.length]; chordIdx++;
+                words[0] = c1 + ' ' + words[0];
+                if (words.length > 3) {
+                  words[Math.floor(words.length / 2)] = c2 + ' ' + words[Math.floor(words.length / 2)];
+                }
+              } else {
+                const c = chords[chordIdx % chords.length]; chordIdx++;
+                words[0] = c + ' ' + words[0];
+              }
+              return `[${m[1]}:${m[2]}.${m[3]}] ` + words.join(' ');
+            });
+
+            return processed.join('\n');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`Could not fetch lyrics for query "${query}":`, e);
+    }
+  }
+
+  // Basic fallback template if fetch fails
+  return `[00:01.00] (Riproduzione in corso...)
+[00:05.00] [DO] Canto questa [SOL] canzone insieme a [LAm] te
+[00:10.00] [FA] Sotto la [DO] luna e le stelle [SOL]
+[00:15.00] [LAm] Sentiamo il [FA] ritmo salire nel [DO] vento [SOL]
+[00:20.00] [FA] E il jam [SOL] non finira [DO]
+[00:25.00] (Fine spartito di prova)`;
+}
+
 // Helper for default local mock data
-const DEFAULT_SONGS = [];
+const DEFAULT_SONGS = [
+  {
+    id: "p_sole",
+    deezer_id: "sole",
+    title: "La canzone del sole",
+    artist: "Lucio Battisti",
+    cover_url: "https://e-cdns-images.dzcdn.net/images/cover/ea8207908b8b0e8c05ed83610992383c/250x250-000000-80-0-0.jpg",
+    preview_url: "",
+    proposed_by: "u1",
+    proposed_by_name: "Paolo Rossi",
+    proposed_at: new Date().toISOString(),
+    player_name: "Paolo Rossi",
+    player_instrument: "Chitarra",
+    under_review: false,
+    review_count: 0,
+    lyrics_sheet: `[00:01.00](Intro Strumentale - 8 secondi)
+[00:08.00][LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi
+[00:13.50][LA] Le tue cal[MI]zette [RE] rosse [MI]
+[00:18.00][LA] E l'inno[MI]cenza su[RE]lle labbra [MI] tue
+[00:23.50][LA] Due aran[MI]ce ancor più [RE] rosse [MI]
+[00:28.00][LA] Ma la can[MI]zone del [RE] sole [MI]
+[00:33.50][LA] Cosa ne [MI] sa? [RE] [MI]
+[00:38.00][LA] Ma cosa [MI] ne sa di [RE] noi? [MI]
+[00:43.00][LA] E al cimitero [MI] dei [RE] fiori [MI]
+[00:48.00][LA] Un altro [MI] sole [RE] nascerà [MI]`
+  },
+  {
+    id: "p_wonderwall",
+    deezer_id: "wonderwall",
+    title: "Wonderwall",
+    artist: "Oasis",
+    cover_url: "https://e-cdns-images.dzcdn.net/images/cover/cc8207908b8b0e8c05ed83610992383d/250x250-000000-80-0-0.jpg",
+    preview_url: "",
+    proposed_by: "u2",
+    proposed_by_name: "Giulia Bianchi",
+    proposed_at: new Date().toISOString(),
+    player_name: "Giulia Bianchi",
+    player_instrument: "Voce",
+    under_review: false,
+    review_count: 0,
+    lyrics_sheet: `[00:01.00](Intro - 6 secondi)
+[00:06.00][MIm7] Today is [SOL] gonna be the day
+[00:10.50]That they're [RE] gonna throw it back to [LA7sus4] you
+[00:15.00][MIm7] By now you [SOL] should've somehow
+[00:19.50]Real[RE]ized what you gotta [LA7sus4] do
+[00:24.00][DO] I don't believe that [RE] anybody
+[00:29.00][MIm7] Feels the way I [SOL] do about you [LA7sus4] now
+[00:34.00][DO] And backbeat, the [RE] word was on the [MIm7] street
+[00:38.50]That the [SOL] fire in your heart is [LA7sus4] out`
+  },
+  {
+    id: "p_box",
+    deezer_id: "box",
+    title: "Man in the Box",
+    artist: "Alice in Chains",
+    cover_url: "https://e-cdns-images.dzcdn.net/images/cover/aa8207908b8b0e8c05ed83610992383f/250x250-000000-80-0-0.jpg",
+    preview_url: "",
+    proposed_by: "u3",
+    proposed_by_name: "Organizzatore (Admin)",
+    proposed_at: new Date().toISOString(),
+    player_name: "Organizzatore",
+    player_instrument: "Percussioni",
+    under_review: false,
+    review_count: 0,
+    lyrics_sheet: `[00:01.00](Guitar Intro Riff - 12 secondi)
+[00:12.00][MIm] I'm the man in the [SOL] box
+[00:16.50][RE] Buried in my [LA] shit
+[00:21.00][MIm] Won't you come and [SOL] save me?
+[00:25.50][RE] Save [LA] me
+[00:30.00][MIm] Feed my [SOL] eyes, can you [RE] sew them [LA] shut?
+[00:35.00][MIm] Jesus [SOL] Christ, de[RE]ny your [LA] maker
+[00:40.00][MIm] He who [SOL] tries, will [RE] be [LA] wasted
+[00:45.00][MIm] Feed my [SOL] eyes, now you've [RE] sewn them [LA] shut`
+  }
+];
 const MOCK_USERS = [
   { id: "u1", email: "p.rossi@gmail.com", display_name: "Paolo Rossi", avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Paolo", is_admin: false },
   { id: "u2", email: "giulia.bianchi@gmail.com", display_name: "Giulia Bianchi", avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Giulia", is_admin: false },
   { id: "u3", email: "admin.longobardi@gmail.com", display_name: "Organizzatore (Admin)", avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=Admin", is_admin: true }
 ];
 
-// Initialize mock storage if empty
-if (!localStorage.getItem("jam_proposals_v3")) localStorage.setItem("jam_proposals_v3", JSON.stringify(DEFAULT_SONGS));
+// Initialize mock storage if empty or length is 0
+if (!localStorage.getItem("jam_proposals_v3") || JSON.parse(localStorage.getItem("jam_proposals_v3")).length === 0) {
+  localStorage.setItem("jam_proposals_v3", JSON.stringify(DEFAULT_SONGS));
+} else {
+  // If proposals exist, check if the default ones lack lyrics_sheet and update them
+  try {
+    const list = JSON.parse(localStorage.getItem("jam_proposals_v3"));
+    
+    // If no lyrics sheet exists in the entire local database, let's reset to defaults to clear any corrupted state
+    const hasAnyLyrics = list.some(p => p.lyrics_sheet);
+    if (!hasAnyLyrics) {
+      localStorage.setItem("jam_proposals_v3", JSON.stringify(DEFAULT_SONGS));
+    } else {
+      let modified = false;
+      const updatedList = list.map(item => {
+        const titleLower = item.title.toLowerCase();
+        let defaultMatch = null;
+        if (titleLower.includes("canzone del sole")) {
+          defaultMatch = DEFAULT_SONGS.find(d => d.deezer_id === 'sole');
+        } else if (titleLower.includes("wonderwall")) {
+          defaultMatch = DEFAULT_SONGS.find(d => d.deezer_id === 'wonderwall');
+        } else if (titleLower.includes("man in the box") || titleLower.includes("man in a box")) {
+          defaultMatch = DEFAULT_SONGS.find(d => d.deezer_id === 'box');
+        }
+
+        if (defaultMatch && !item.lyrics_sheet) {
+          modified = true;
+          return { ...item, lyrics_sheet: defaultMatch.lyrics_sheet };
+        }
+        return item;
+      });
+      if (modified) {
+        localStorage.setItem("jam_proposals_v3", JSON.stringify(updatedList));
+      }
+    }
+  } catch (e) {
+    console.error("Failed to sync lyrics sheet to cached proposals", e);
+  }
+}
 if (!localStorage.getItem("jam_votes_v3")) localStorage.setItem("jam_votes_v3", JSON.stringify([]));
 if (!localStorage.getItem("jam_reports_v3")) localStorage.setItem("jam_reports_v3", JSON.stringify([]));
 if (!localStorage.getItem("jam_users_v3")) localStorage.setItem("jam_users_v3", JSON.stringify(MOCK_USERS));
@@ -33,11 +230,7 @@ export const mockDb = {
   getCurrentUser: async () => {
     if (isSupabaseConfigured()) {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !session.user) {
-        // Fallback to local mock user if logged in locally for testing
-        const localUser = localStorage.getItem("jam_current_user");
-        return localUser ? JSON.parse(localUser) : null;
-      }
+      if (!session || !session.user) return null;
       
       // Fetch custom profile info
       const { data: profile } = await supabase
@@ -59,16 +252,6 @@ export const mockDb = {
   },
 
   login: async (userId) => {
-    // If it's a test mock userId, always login locally even if Supabase is active
-    if (userId && (userId === 'u1' || userId === 'u2' || userId === 'u3')) {
-      const users = JSON.parse(localStorage.getItem("jam_users_v3")) || MOCK_USERS;
-      const user = users.find(u => u.id === userId);
-      if (user) {
-        localStorage.setItem("jam_current_user", JSON.stringify(user));
-        return user;
-      }
-    }
-
     if (isSupabaseConfigured()) {
       // Trigger Google OAuth redirection
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -109,44 +292,6 @@ export const mockDb = {
     localStorage.setItem("jam_users_v3", JSON.stringify(users));
     localStorage.setItem("jam_current_user", JSON.stringify(newUser));
     return newUser;
-  },
-
-  // Live Session Synchronizer
-  getLiveActiveSong: async () => {
-    if (isSupabaseConfigured()) {
-      try {
-        const { data, error } = await supabase
-          .from('live_session')
-          .select('*')
-          .eq('id', 'unplugged_session')
-          .maybeSingle();
-        if (data) return data;
-      } catch (err) {
-        console.error("Errore fetch live_session da Supabase:", err);
-      }
-    }
-    // Mock local storage fallback
-    const local = localStorage.getItem("live_session_v3");
-    return local ? JSON.parse(local) : { active_song_id: null, started_at: null, is_playing: false };
-  },
-
-  setLiveActiveSong: async (songId, isPlaying = false) => {
-    const session = {
-      active_song_id: songId,
-      started_at: songId ? new Date().toISOString() : null,
-      is_playing: isPlaying
-    };
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase
-          .from('live_session')
-          .upsert({ id: 'unplugged_session', ...session });
-      } catch (err) {
-        console.error("Errore save live_session su Supabase:", err);
-      }
-    }
-    localStorage.setItem("live_session_v3", JSON.stringify(session));
-    return session;
   },
 
   // Proposals
@@ -193,6 +338,9 @@ export const mockDb = {
   proposeSong: async (songData, user) => {
     if (!user) throw new Error("Devi effettuare l'accesso per proporre.");
 
+    // Fetch lyrics and chords in background/realtime
+    const lyricsSheet = await fetchLyricsAndChords(songData.title, songData.artist);
+
     if (isSupabaseConfigured()) {
       const { data, error } = await supabase
         .from('proposals')
@@ -205,13 +353,13 @@ export const mockDb = {
           proposed_by: user.id,
           proposed_by_name: user.display_name,
           player_name: songData.player_name || null,
-          player_instrument: songData.player_name ? songData.player_instrument : null
+          player_instrument: songData.player_name ? songData.player_instrument : null,
+          lyrics_sheet: lyricsSheet
         })
         .select()
         .single();
         
       if (error) {
-        // Postgres triggers check constraint or unique checks errors
         if (error.message.includes('unique')) {
           throw new Error("Questo brano è già stato proposto!");
         }
@@ -243,6 +391,7 @@ export const mockDb = {
       proposed_at: new Date().toISOString(),
       player_name: songData.player_name || "",
       player_instrument: songData.player_instrument || "",
+      lyrics_sheet: lyricsSheet,
       under_review: false,
       review_count: 0
     };

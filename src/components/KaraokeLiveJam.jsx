@@ -1,516 +1,575 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-// Chords and lyrics database for interactive diagrams
-const CHORD_DIAGRAMS = {
-  "LA": { name: "La Maggiore (A)", frets: [{ s: 3, f: 2 }, { s: 4, f: 2 }, { s: 5, f: 2 }], muted: [1], open: [2, 6] },
-  "MI": { name: "Mi Maggiore (E)", frets: [{ s: 2, f: 2 }, { s: 3, f: 2 }, { s: 4, f: 1 }], open: [1, 5, 6] },
-  "RE": { name: "Re Maggiore (D)", frets: [{ s: 4, f: 2 }, { s: 5, f: 3 }, { s: 6, f: 2 }], muted: [1, 2], open: [3] },
-  "MIM": { name: "Mi Minore (Em)", frets: [{ s: 2, f: 2 }, { s: 3, f: 2 }], open: [1, 4, 5, 6] },
-  "SOL": { name: "Sol Maggiore (G)", frets: [{ s: 1, f: 3 }, { s: 2, f: 2 }, { s: 6, f: 3 }], open: [3, 4, 5] },
-  "DO": { name: "Do Maggiore (C)", frets: [{ s: 2, f: 3 }, { s: 3, f: 2 }, { s: 5, f: 1 }], muted: [1], open: [4, 6] },
-  "LAM": { name: "La Minore (Am)", frets: [{ s: 3, f: 2 }, { s: 4, f: 2 }, { s: 5, f: 1 }], muted: [1], open: [2, 6] },
-  "FA": { name: "Fa Maggiore (F)", frets: [{ s: 1, f: 1 }, { s: 2, f: 3 }, { s: 3, f: 3 }, { s: 4, f: 2 }, { s: 5, f: 1 }, { s: 6, f: 1 }] },
-  "MIM7": { name: "Mi Minore 7 (Em7)", frets: [{ s: 2, f: 2 }, { s: 5, f: 3 }, { s: 6, f: 3 }], open: [1, 3, 4] },
-  "LA7SUS4": { name: "La 7 sus 4 (A7sus4)", frets: [{ s: 3, f: 2 }, { s: 5, f: 3 }], muted: [1], open: [2, 4, 6] }
+// --- Guitar Chord Database (Italian chord names) ------------------------------
+// Format: [E-low, A, D, G, B, e-high]  -1=muted  0=open  n=fret
+const CHORD_DB = {
+  'DO':   { fingers: [-1,3,2,0,1,0], label:'C' },
+  'RE':   { fingers: [-1,-1,0,2,3,2], label:'D' },
+  'MI':   { fingers: [0,2,2,1,0,0], label:'E' },
+  'FA':   { fingers: [1,1,3,3,2,1], label:'F', barre:{fret:1,from:0,to:5} },
+  'SOL':  { fingers: [3,2,0,0,0,3], label:'G' },
+  'LA':   { fingers: [-1,0,2,2,2,0], label:'A' },
+  'SI':   { fingers: [-1,2,4,4,4,2], label:'B', barre:{fret:2,from:1,to:5} },
+  'DOm':  { fingers: [-1,3,5,5,4,3], label:'Cm', barre:{fret:3,from:1,to:5} },
+  'REm':  { fingers: [-1,-1,0,2,3,1], label:'Dm' },
+  'MIm':  { fingers: [0,2,2,0,0,0], label:'Em' },
+  'FAm':  { fingers: [1,1,3,3,1,1], label:'Fm', barre:{fret:1,from:0,to:5} },
+  'SOLm': { fingers: [3,5,5,3,3,3], label:'Gm', barre:{fret:3,from:0,to:5} },
+  'LAm':  { fingers: [-1,0,2,2,1,0], label:'Am' },
+  'SIm':  { fingers: [-1,2,4,4,3,2], label:'Bm', barre:{fret:2,from:1,to:5} },
+  'DO7':  { fingers: [-1,3,2,3,1,0], label:'C7' },
+  'RE7':  { fingers: [-1,-1,0,2,1,2], label:'D7' },
+  'MI7':  { fingers: [0,2,0,1,0,0], label:'E7' },
+  'FA7':  { fingers: [1,1,3,2,2,1], label:'F7', barre:{fret:1,from:0,to:5} },
+  'SOL7': { fingers: [3,2,0,0,0,1], label:'G7' },
+  'LA7':  { fingers: [-1,0,2,0,2,0], label:'A7' },
+  'SI7':  { fingers: [-1,2,1,2,0,2], label:'B7' },
+  'MIm7': { fingers: [0,2,0,0,0,0], label:'Em7' },
+  'LAm7': { fingers: [-1,0,2,0,1,0], label:'Am7' },
+  'REm7': { fingers: [-1,-1,0,2,1,1], label:'Dm7' },
+  'SIm7': { fingers: [-1,2,4,2,3,2], label:'Bm7', barre:{fret:2,from:1,to:5} },
+  'LA7sus4': { fingers: [-1,0,2,0,3,0], label:'A7sus4' },
+  'REsus2':  { fingers: [-1,-1,0,2,3,0], label:'Dsus2' },
+  'SOLsus2': { fingers: [3,0,0,0,3,3], label:'Gsus2' },
+  'MIsus4':  { fingers: [0,2,2,2,0,0], label:'Esus4' },
+  'LAM':  { fingers: [-1,0,2,2,1,0], label:'Am' },
+  'MIM':  { fingers: [0,2,2,0,0,0], label:'Em' },
+  'REM':  { fingers: [-1,-1,0,2,3,1], label:'Dm' },
 };
 
-// Chords and lyrics data
-const LYRICS_DATA = {
-  sole: [
-    { time: 0, text: "[LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi" },
-    { time: 3, text: "[LA] Le tue cal[MI]zette [RE] rosse [MI]" },
-    { time: 6, text: "[LA] E l'inno[MI]cenza su[RE]lle labbra [MI] tue" },
-    { time: 9, text: "[LA] Due aran[MI]ce ancor più [RE] rosse [MI]" },
-    { time: 12, text: "[LA] Ma la can[MI]zone del [RE] sole [MI]" },
-    { time: 15, text: "[LA] Cosa ne [MI] sa? [RE] [MI]" },
-    { time: 18, text: "[LA] Ma cosa [MI] ne sa di [RE] noi? [MI]" },
-    { time: 21, text: "[LA] E al cimitero [MI] dei [RE] fiori [MI]" },
-    { time: 24, text: "[LA] Un altro [MI] sole [RE] nascerà [MI]" }
-  ],
-  wonderwall: [
-    { time: 0, text: "[MIm7] Today is [SOL] gonna be the day" },
-    { time: 3, text: "That they're [RE] gonna throw it back to [LA7sus4] you" },
-    { time: 6, text: "[MIm7] By now you [SOL] should've somehow" },
-    { time: 9, text: "Real[RE]ized what you gotta [LA7sus4] do" },
-    { time: 12, text: "[DO] I don't believe that [RE] anybody" },
-    { time: 15, text: "[MIm7] Feels the way I [SOL] do about you [LA7sus4] now" },
-    { time: 18, text: "[DO] And backbeat, the [RE] word was on the [MIm7] street" },
-    { time: 21, text: "That the [SOL] fire in your heart is [LA7sus4] out" }
-  ],
-  box: [
-    { time: 0, text: "[MIm] I'm the man in the [SOL] box" },
-    { time: 3, text: "[RE] Buried in my [LA] shit" },
-    { time: 6, text: "[MIm] Won't you come and [SOL] save me?" },
-    { time: 9, text: "[RE] Save [LA] me" },
-    { time: 12, text: "(Ritornello)" },
-    { time: 14, text: "[MIm] Feed my [SOL] eyes, can you [RE] sew them [LA] shut?" },
-    { time: 18, text: "[MIm] Jesus [SOL] Christ, de[RE]ny your [LA] maker" },
-    { time: 22, text: "[MIm] He who [SOL] tries, will [RE] be [LA] wasted" },
-    { time: 26, text: "[MIm] Feed my [SOL] eyes, now you've [RE] sewn them [LA] shut" }
-  ],
-  fallback: [
-    { time: 0, text: "[DO] Lungo la strada [SOL] passeggiavamo insieme," },
-    { time: 3, text: "[LAM] le onde del mare e [FA] l'accordo che sale." },
-    { time: 6, text: "[DO] Sotto le stelle di [SOL] questa notte d'estate," },
-    { time: 9, text: "[LAM] cantiamo forte le [FA] nostre canzoni preferite." },
-    { time: 12, text: "(Ritornello)" },
-    { time: 15, text: "[DO] E si suona, [SOL] e si balla sulla sabbia!" },
-    { time: 18, text: "[LAM] Senza pensieri e [FA] senza più rabbia." },
-    { time: 21, text: "[DO] Con una chitarra [SOL] e un cerchio di amici," },
-    { time: 24, text: "[LAM] in questa notte ci [FA] sentiamo felici." }
-  ]
+// --- SVG Chord Diagram (minimal) ---------------------------------------------
+function ChordDiagram({ name }) {
+  const chord = CHORD_DB[name.toUpperCase()] || CHORD_DB[name];
+  const S = 6, F = 4;
+  const cW = 22, cH = 20;
+  const pL = 14, pT = 26, pR = 8, pB = 4;
+  const W = pL + (S - 1) * cW + pR;
+  const H = pT + F * cH + pB;
+
+  if (!chord) return (
+    <div style={{ padding: '10px 14px', textAlign: 'center' }}>
+      <div style={{ color: '#FFD700', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '0.9rem' }}>{name}</div>
+      <div style={{ color: '#444', fontSize: '0.7rem', marginTop: '4px' }}>non disponibile</div>
+    </div>
+  );
+
+  const { fingers, barre, label } = chord;
+  const minFret = Math.max(1, Math.min(...fingers.filter(f => f > 0)));
+  const baseFret = minFret > 4 ? minFret - 1 : 1;
+
+  const dots = [];
+  fingers.forEach((f, s) => {
+    if (f <= 0) return;
+    const cy = pT + (f - baseFret + 0.5) * cH;
+    dots.push({ cx: pL + s * cW, cy });
+  });
+
+  return (
+    <div style={{ padding: '8px 10px', textAlign: 'center' }}>
+      <div style={{ color: '#FFD700', fontWeight: '700', fontFamily: 'monospace', fontSize: '0.85rem', marginBottom: '5px', letterSpacing: '0.05em' }}>
+        {name} <span style={{ color: '#555', fontSize: '0.65rem', fontWeight: 'normal' }}>{label}</span>
+      </div>
+      <svg width={W} height={H} style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}>
+        {baseFret === 1
+          ? <rect x={pL} y={pT - 3} width={(S-1)*cW} height={3} rx={1} fill="#555" />
+          : <text x={pL-3} y={pT+cH*0.55} textAnchor="end" fill="#444" fontSize="9">{baseFret}</text>
+        }
+        {Array.from({ length: S }, (_, s) => (
+          <line key={s} x1={pL+s*cW} y1={pT} x2={pL+s*cW} y2={pT+F*cH} stroke="#252525" strokeWidth={1} />
+        ))}
+        {Array.from({ length: F+1 }, (_, f) => (
+          <line key={f} x1={pL} y1={pT+f*cH} x2={pL+(S-1)*cW} y2={pT+f*cH} stroke="#252525" strokeWidth={0.7} />
+        ))}
+        {barre && (() => {
+          const cy = pT + (barre.fret - baseFret + 0.5) * cH;
+          return <rect x={pL+barre.from*cW} y={cy-6} width={(barre.to-barre.from)*cW} height={12} rx={6} fill="#2255bb" />;
+        })()}
+        {dots.map((d, i) => (
+          <circle key={i} cx={d.cx} cy={d.cy} r={7} fill="#2255bb" />
+        ))}
+        {fingers.map((f, s) => {
+          const x = pL + s * cW;
+          if (f === 0) return <text key={s} x={x} y={pT-7} textAnchor="middle" fill="#3a6a3a" fontSize="9">o</text>;
+          if (f === -1) return <text key={s} x={x} y={pT-7} textAnchor="middle" fill="#6a3a3a" fontSize="9">x</text>;
+          return null;
+        })}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '2px' }}>
+        {['E','A','D','G','B','e'].map((n, s) => (
+          <span key={s} style={{ width: cW+'px', textAlign: 'center', display: 'inline-block', fontSize: '8px', color: '#2a2a2a', fontFamily: 'monospace' }}>{n}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- Lyrics templates built-in -----------------------------------------------
+const TEMPLATES = {
+  sole: `[00:01.00] (Intro Strumentale)
+[00:08.00] [LA] Le bionde [MI] trecce, gli [RE] occhi azzurri e [MI] poi
+[00:13.50] [LA] Le tue cal[MI]zette [RE] rosse [MI]
+[00:18.00] [LA] E l'inno[MI]cenza su[RE]lle labbra [MI] tue
+[00:23.50] [LA] Due aran[MI]ce ancor piu [RE] rosse [MI]
+[00:28.00] [LA] Ma la can[MI]zone del [RE] sole [MI]
+[00:33.50] [LA] Cosa ne [MI] sa? [RE]
+[00:38.00] [LA] Ma cosa [MI] ne sa di [RE] noi?
+[00:43.00] [LA] E al cimitero [MI] dei [RE] fiori [MI]
+[00:48.00] [LA] Un altro [MI] sole [RE] nascera [MI]`,
+
+  wonderwall: `[00:01.00] (Intro)
+[00:06.00] [MIm7] Today is [SOL] gonna be the day
+[00:10.50] That they're [RE] gonna throw it back to [LA] you
+[00:15.00] [MIm7] By now you [SOL] should've somehow
+[00:19.50] Real[RE]ized what you gotta [LA] do
+[00:24.00] [DO] I don't believe that [RE] anybody
+[00:29.00] [MIm7] Feels the way I [SOL] do about you [LA] now
+[00:34.00] [DO] And backbeat, the [RE] word was on the [MIm7] street
+[00:38.50] That the [SOL] fire in your heart is [LA] out`,
+
+  box: `[00:01.00] (Guitar Intro Riff)
+[00:12.00] [MIm] I'm the man in the [SOL] box
+[00:16.50] [RE] Buried in my [LA] shit
+[00:21.00] [MIm] Won't you come and [SOL] save me?
+[00:25.50] [RE] Save [LA] me
+[00:30.00] [MIm] Feed my [SOL] eyes, can you [RE] sew them [LA] shut?
+[00:35.00] [MIm] Jesus [SOL] Christ, de[RE]ny your [LA] maker
+[00:40.00] [MIm] He who [SOL] tries, will [RE] be [LA] wasted
+[00:45.00] [MIm] Feed my [SOL] eyes, now you've [RE] sewn them [LA] shut`,
 };
 
-// YouTube Video ID mappings for backing track
-const YT_VIDEO_IDS = {
-  sole: "g4mE58N967M",
-  wonderwall: "6hzrDeoppFY",
-  box: "Nco_kh8xJ0c",
-  fallback: "6hzrDeoppFY"
-};
+// --- LRC Parser -------------------------------------------------------------
+function parseLrc(text) {
+  if (!text) return [];
+  const result = [];
 
-export default function KaraokeLiveJam({ song, isScrolling, onToggleScroll, onTimeUpdate, karaokeTime, onClose }) {
+  text.split('\n').forEach((raw, idx) => {
+    const m = raw.match(/^\[(\d{2}):(\d{2})\.(\d{2})\]\s*(.*)/);
+    if (!m) return;
+    const time = parseInt(m[1]) * 60 + parseInt(m[2]) + parseInt(m[3]) / 100;
+    const content = m[4].trim();
+
+    // Split into chord+text segments: [CHORD] text
+    const segments = [];
+    const parts = content.split(/(\[[^\]]+\])/);
+    let chord = '';
+    parts.forEach(part => {
+      if (/^\[[^\]]+\]$/.test(part)) {
+        chord = part.slice(1, -1);
+      } else {
+        segments.push({ chord, text: part });
+        chord = '';
+      }
+    });
+
+    result.push({ id: idx, time, segments, raw: content });
+  });
+
+  // Assign end times
+  for (let i = 0; i < result.length; i++) {
+    result[i].end = i < result.length - 1 ? result[i + 1].time : result[i].time + 8;
+  }
+  return result;
+}
+
+// --- Component ---------------------------------------------------------------
+export default function KaraokeLiveJam({ song, isHost, onClose }) {
+  const [lines, setLines] = useState([]);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [activeId, setActiveId] = useState(-1);
+  const [asHost, setAsHost] = useState(isHost !== false);
+  const [selectedChord, setSelectedChord] = useState(null); // chord popup
+
   const containerRef = useRef(null);
-  const activeLineRef = useRef(null);
-  const playerRef = useRef(null);
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
-  const [activeChord, setActiveChord] = useState(null);
+  const activeRef = useRef(null);
+  const timerRef = useRef(null);
+  const startRef = useRef(0);
+  const pauseRef = useRef(0);
+  const bcRef = useRef(null);
 
-  const titleLower = song.title.toLowerCase();
-  const lyricsKey = titleLower.includes("sole") ? "sole" 
-    : titleLower.includes("wonderwall") ? "wonderwall" 
-    : titleLower.includes("box") ? "box" 
-    : "fallback";
-  
-  const lines = LYRICS_DATA[lyricsKey] || LYRICS_DATA.fallback;
+  // --- Load lyrics -----------------------------------------------------------
+  useEffect(() => {
+    if (!song) return;
+    
+    async function loadLyrics() {
+      let sheet = song.lyrics_sheet || '';
 
-  // Find active line index
-  let activeIndex = 0;
-  for (let i = 0; i < lines.length; i++) {
-    if (karaokeTime >= lines[i].time) {
-      activeIndex = i;
+      if (!sheet) {
+        const t = (song.title || '').toLowerCase();
+        if (t.includes('sole')) sheet = TEMPLATES.sole;
+        else if (t.includes('wonderwall')) sheet = TEMPLATES.wonderwall;
+        else if (t.includes('man in the box') || t.includes('man in a box')) sheet = TEMPLATES.box;
+      }
+
+      // If still no lyrics, query the live API on the fly
+      if (!sheet) {
+        // Simple cleaning helper function inline
+        const cleanStr = (s) => (s || '')
+          .replace(/\([^)]*\)/g, '')
+          .replace(/\[[^\]]*\]/g, '')
+          .replace(/\s-\s.*/g, '')
+          .replace(/feat\..*/gi, '')
+          .replace(/ft\..*/gi, '')
+          .replace(/[?.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const cleanTitle = cleanStr(song.title);
+        const cleanArtist = cleanStr(song.artist);
+
+        const queries = [
+          `${cleanTitle} ${cleanArtist}`,
+          cleanTitle
+        ];
+
+        for (const query of queries) {
+          try {
+            const targetUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+            const res = await fetch(proxyUrl);
+            if (res.ok) {
+              const wrapper = await res.json();
+              if (wrapper && wrapper.contents) {
+                const data = JSON.parse(wrapper.contents);
+                if (Array.isArray(data) && data.length > 0) {
+                  const match = data.find(item => item.syncedLyrics);
+                  if (match && match.syncedLyrics) {
+                    // Standard chord injection
+                    const linesLrc = match.syncedLyrics.split('\n');
+                    const chords = ['[LA]', '[MI]', '[RE]', '[SOL]', '[DO]', '[LAm]', '[MIm]', '[SIm]'];
+                    let chordIdx = 0;
+                    const processed = linesLrc.map(line => {
+                      const m = line.match(/^\[(\d{2}):(\d{2})\.(\d{2})\](.*)/);
+                      if (!m) return line;
+                      const text = m[4].trim();
+                      if (!text || text.startsWith('(')) return line;
+                      const words = text.split(' ');
+                      if (words.length > 2) {
+                        words[0] = chords[chordIdx % chords.length] + ' ' + words[0];
+                        chordIdx++;
+                        if (words.length > 3) {
+                          words[Math.floor(words.length / 2)] = chords[chordIdx % chords.length] + ' ' + words[Math.floor(words.length / 2)];
+                          chordIdx++;
+                        }
+                      } else {
+                        words[0] = chords[chordIdx % chords.length] + ' ' + words[0];
+                        chordIdx++;
+                      }
+                      return `[${m[1]}:${m[2]}.${m[3]}] ` + words.join(' ');
+                    });
+                    sheet = processed.join('\n');
+                    break; // exit queries loop on success!
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`On-the-fly search failed for query "${query}":`, e);
+          }
+        }
+      }
+
+      if (!sheet) {
+        sheet = `[00:01.00] (Testo non trovato online)
+[00:05.00] [DO] Canto questa [SOL] canzone insieme a [LAm] te
+[00:10.00] [FA] Sotto la [DO] luna e le stelle [SOL]
+[00:15.00] [LAm] Sentiamo il [FA] ritmo salire nel [DO] vento [SOL]
+[00:20.00] [FA] E il jam [SOL] non finira [DO]
+[00:25.00] (Fine spartito di prova)`;
+      }
+
+      setLines(parseLrc(sheet));
+      stop();
+    }
+
+    loadLyrics();
+  }, [song]);
+
+  // ---------------- Broadcast channel (same-device sync) ----------------
+  useEffect(() => {
+    try {
+      bcRef.current = new BroadcastChannel('karaoke_sync');
+      bcRef.current.onmessage = ({ data }) => {
+        if (!asHost) {
+          setElapsed(data.t);
+          setPlaying(data.p);
+        }
+      };
+    } catch (e) { /* BroadcastChannel not supported */ }
+    return () => { if (bcRef.current) bcRef.current.close(); };
+  }, [asHost]);
+
+  function broadcast(t, p) {
+    try {
+      if (bcRef.current) bcRef.current.postMessage({ t, p });
+    } catch (e) { /* channel may be closed, ignore */ }
+  }
+
+  // ---------------- Timer ----------------
+  function stop() {
+    clearInterval(timerRef.current);
+    setPlaying(false);
+    setElapsed(0);
+    pauseRef.current = 0;
+    broadcast(0, false);
+  }
+
+  function togglePlay() {
+    if (playing) {
+      clearInterval(timerRef.current);
+      setPlaying(false);
+      pauseRef.current = elapsed;
+      broadcast(elapsed, false);
     } else {
-      break;
+      setPlaying(true);
+      startRef.current = performance.now() - elapsed * 1000;
+      broadcast(elapsed, true);
+      timerRef.current = setInterval(() => {
+        const cur = (performance.now() - startRef.current) / 1000;
+        setElapsed(cur);
+        // periodic sync broadcast
+        if (Math.random() < 0.1) {
+          broadcast(cur, true);
+        }
+      }, 50);
     }
   }
 
-  // Handle Autoscrolling with smooth sub-second pixel interpolation
+  // --- Active line detection -------------------------------------------------
   useEffect(() => {
-    if (autoScrollEnabled && containerRef.current) {
-      const activeEl = activeLineRef.current;
-      if (activeEl) {
-        const container = containerRef.current;
-        
-        // Find next element to interpolate if available
-        const currentLine = lines[activeIndex];
-        const nextLine = lines[activeIndex + 1];
-        
-        let extraOffset = 0;
-        if (currentLine && nextLine && karaokeTime > currentLine.time) {
-          const totalDuration = nextLine.time - currentLine.time;
-          const elapsed = karaokeTime - currentLine.time;
-          const progress = Math.min(1, Math.max(0, elapsed / totalDuration));
-          
-          // Interpolate with next element's offset to make scrolling perfectly continuous!
-          const nextEl = activeEl.nextElementSibling;
-          if (nextEl) {
-            const currentTop = activeEl.offsetTop;
-            const nextTop = nextEl.offsetTop;
-            const distance = nextTop - currentTop;
-            extraOffset = distance * progress;
-          }
-        }
-
-        const targetScrollTop = (activeEl.offsetTop + extraOffset) - container.clientHeight / 2 + activeEl.clientHeight / 2;
-
-        // Set scroll position instantly to prevent animation conflict locks
-        container.scrollTop = targetScrollTop;
+    let id = -1;
+    for (const ln of lines) {
+      if (elapsed >= ln.time && elapsed <= ln.end) {
+        id = ln.id;
+        break;
       }
     }
-  }, [activeIndex, autoScrollEnabled, karaokeTime, lines]);
+    setActiveId(id);
+  }, [elapsed, lines]);
 
-  // Load YouTube Player API and Initialize
+  // --- Auto-scroll -----------------------------------------------------------
   useEffect(() => {
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    if (activeRef.current && containerRef.current) {
+      const c = containerRef.current;
+      const el = activeRef.current;
+      const cRect = c.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const targetScroll = c.scrollTop + (elRect.top - cRect.top) - c.clientHeight / 2 + el.clientHeight / 2;
+      c.scrollTo({ top: targetScroll, behavior: 'smooth' });
     }
+  }, [activeId]);
 
-    let checkYTInterval = setInterval(() => {
-      if (window.YT && window.YT.Player) {
-        clearInterval(checkYTInterval);
-        initYTPlayer();
-      }
-    }, 100);
+  const total = lines.length > 0 ? lines[lines.length - 1].end : 0;
+  const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-    return () => {
-      clearInterval(checkYTInterval);
-      if (playerRef.current && playerRef.current.destroy) {
-        playerRef.current.destroy();
-      }
-    };
-  }, [song.id]);
-
-  const initYTPlayer = () => {
-    const videoId = YT_VIDEO_IDS[lyricsKey] || YT_VIDEO_IDS.fallback;
-    
-    // Check if element is in DOM
-    if (!document.getElementById('yt-player')) return;
-
-    playerRef.current = new window.YT.Player('yt-player', {
-      height: '120',
-      width: '100%',
-      videoId: videoId,
-      playerVars: {
-        playsinline: 1,
-        controls: onToggleScroll ? 1 : 0, // Show controls for Host/Studio only
-        rel: 0,
-        modestbranding: 1
-      },
-      events: {
-        onReady: (event) => {
-          if (!onToggleScroll && karaokeTime > 0) {
-            event.target.seekTo(karaokeTime, true);
-            event.target.playVideo();
-          }
-        },
-        onStateChange: (event) => {
-          if (onToggleScroll) {
-            const isPlaying = event.data === window.YT.PlayerState.PLAYING;
-            if (isPlaying !== isScrolling) {
-              onToggleScroll(isPlaying);
-            }
-          }
-        }
-      }
-    });
-  };
-
-  // Poll Host YouTube Player time and lift up to parent
-  useEffect(() => {
-    let pollInterval;
-    if (onToggleScroll && isScrolling && playerRef.current && playerRef.current.getCurrentTime) {
-      pollInterval = setInterval(() => {
-        const t = playerRef.current.getCurrentTime();
-        if (typeof t === 'number' && onTimeUpdate) {
-          onTimeUpdate(t);
-        }
-      }, 150);
-    }
-    return () => clearInterval(pollInterval);
-  }, [isScrolling, onToggleScroll, onTimeUpdate]);
-
-  // Sync Singer YouTube Player state with parent state
-  useEffect(() => {
-    if (!onToggleScroll && playerRef.current && playerRef.current.getPlayerState) {
-      try {
-        const state = playerRef.current.getPlayerState();
-        if (karaokeTime > 0) {
-          const localTime = playerRef.current.getCurrentTime() || 0;
-          if (Math.abs(localTime - karaokeTime) > 1.5) {
-            playerRef.current.seekTo(karaokeTime, true);
-          }
-          if (state !== window.YT.PlayerState.PLAYING) {
-            playerRef.current.playVideo();
-          }
-        } else {
-          if (state === window.YT.PlayerState.PLAYING) {
-            playerRef.current.pauseVideo();
-          }
-        }
-      } catch (e) {
-        console.warn("YouTube player sync failed", e);
-      }
-    }
-  }, [karaokeTime, onToggleScroll]);
-
-  // Map chord modifiers to base keys
-  const getCleanChordKey = (chordName) => {
-    let clean = chordName.toUpperCase().trim();
-    if (CHORD_DIAGRAMS[clean]) return clean;
-    if (clean === "MIM" || clean === "EM") return "MIM";
-    if (clean === "MIM7" || clean === "EM7") return "MIM7";
-    if (clean === "LA7SUS4" || clean === "A7SUS4") return "LA7SUS4";
-    if (clean === "LAM" || clean === "AM") return "LAM";
-    return clean;
-  };
-
-  // Clean chords above lyrics presentation helper with position layout
-  const renderParsedChordsAndLyrics = (text, isActive) => {
-    let cleanPos = 0;
-    let i = 0;
-    let chordsList = [];
-
-    while (i < text.length) {
-      if (text[i] === '[') {
-        let closing = text.indexOf(']', i);
-        if (closing !== -1) {
-          let chordName = text.substring(i + 1, closing);
-          chordsList.push({ pos: cleanPos, name: chordName });
-          i = closing + 1;
-          continue;
-        }
-      }
-      cleanPos++;
-      i++;
-    }
-
-    let cleanText = text.replace(/\[([^\]]+)\]/g, "");
-
-    // If there are no chords in this line, just render the lyrics
-    if (chordsList.length === 0) {
-      return (
-        <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', textTransform: 'uppercase' }}>
-          {cleanText}
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ fontFamily: 'monospace', textTransform: 'uppercase' }}>
-        {/* Chords Line */}
-        <div style={{ 
-          position: 'relative',
-          height: '1.4em',
-          color: isActive ? '#A30000' : 'var(--bauhaus-red)', 
-          fontWeight: '900', 
-          fontSize: '0.95rem',
-          letterSpacing: '0px'
-        }}>
-          {chordsList.map(({ pos, name }, cIdx) => (
-            <span 
-              key={cIdx}
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveChord(name);
-              }}
-              style={{
-                position: 'absolute',
-                left: `${pos}ch`,
-                cursor: 'pointer',
-                borderBottom: '1px dashed var(--bauhaus-red)',
-                paddingBottom: '1px'
-              }}
-              title="Clicca per diagramma accordo"
-            >
-              {name}
-            </span>
-          ))}
-        </div>
-        {/* Lyrics Line */}
-        <div style={{ 
-          lineHeight: '1.2',
-          letterSpacing: '0px',
-          fontWeight: isActive ? '900' : 'normal',
-          whiteSpace: 'pre'
-        }}>
-          {cleanText}
-        </div>
-      </div>
-    );
-  };
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{
-      backgroundColor: '#000000',
-      border: 'none',
-      padding: '0px',
-      marginTop: '10px',
-      position: 'relative'
+      position: 'fixed', inset: 0, zIndex: 100,
+      background: '#000',
+      display: 'flex', flexDirection: 'column',
     }}>
-      {onClose && (
-        <button 
-          onClick={onClose} 
-          className="btn-bauhaus btn-red"
-          style={{
-            position: 'absolute',
-            top: '0px',
-            right: '0px',
-            width: 'auto',
-            padding: '8px 16px',
-            fontSize: '0.8rem',
-            boxShadow: 'none',
-            zIndex: 10
-          }}
-        >
-          CHIUDI
-        </button>
-      )}
-
+      {/* TOP BAR */}
       <div style={{
-        marginBottom: '20px', 
-        borderBottom: '1px solid rgba(255,255,255,0.2)', 
-        paddingBottom: '16px', 
-        marginRight: onClose ? '80px' : '0px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start'
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 18px',
+        background: 'rgba(0,0,0,0.92)',
+        borderBottom: '1px solid #1a1a1a',
+        flexShrink: 0,
+        zIndex: 10,
+        gap: '12px',
       }}>
-        <div>
-          <h3 style={{fontSize: '1.4rem', textTransform: 'uppercase', margin: 0}}>{song.title}</h3>
-          <p style={{fontSize: '0.9rem', color: 'var(--charcoal)', fontWeight: 'bold', margin: '4px 0 0 0'}}>{(song.artist || '')?.toUpperCase()}</p>
+        {/* Title + Artist stacked */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+          <div style={{
+            fontSize: '1rem', fontWeight: '900', textTransform: 'uppercase',
+            color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {song?.title}
+          </div>
+          <div style={{
+            fontSize: '0.8rem', color: '#888',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {song?.artist}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {onToggleScroll && (
-            <button 
-              onClick={() => {
-                if (playerRef.current) {
-                  const state = playerRef.current.getPlayerState();
-                  if (state === window.YT.PlayerState.PLAYING) {
-                    playerRef.current.pauseVideo();
-                    onToggleScroll(false);
-                  } else {
-                    playerRef.current.playVideo();
-                    onToggleScroll(true);
-                  }
-                }
-              }}
-              className="btn-bauhaus btn-blue"
-              style={{
-                width: 'auto', 
-                padding: '6px 12px', 
-                fontSize: '0.75rem', 
-                fontWeight: 'bold',
-                boxShadow: 'none',
-                textTransform: 'uppercase'
-              }}
+
+        {/* Controls */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+          <span style={{
+            fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase',
+            color: asHost ? '#3388ff' : '#ff4444',
+            border: `1px solid ${asHost ? '#3388ff' : '#ff4444'}`,
+            borderRadius: '3px', padding: '2px 6px',
+          }}>
+            {asHost ? 'HOST' : 'SINGER'}
+          </span>
+          <button
+            onClick={() => { stop(); setAsHost(h => !h); }}
+            style={{ background: 'none', border: '1px solid #2a2a2a', color: '#aaa', padding: '4px 10px', fontSize: '0.7rem', cursor: 'pointer', borderRadius: '3px' }}
+          >
+            Cambia Mode
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{ background: 'none', border: '1px solid #2a2a2a', color: '#aaa', padding: '4px 10px', fontSize: '0.7rem', cursor: 'pointer', borderRadius: '3px' }}
             >
-              {isScrolling ? '⏸ PAUSA' : '▶ AVVIA'}
+              Chiudi X
             </button>
           )}
-          <button 
-            onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
-            className="btn-bauhaus"
-            style={{
-              width: 'auto', 
-              padding: '6px 12px', 
-              fontSize: '0.75rem', 
-              fontWeight: 'bold',
-              backgroundColor: autoScrollEnabled ? 'var(--bauhaus-yellow)' : 'transparent',
-              color: autoScrollEnabled ? 'black' : 'var(--white)',
-              border: '1px solid var(--white)',
-              boxShadow: 'none',
-              textTransform: 'uppercase'
-            }}
-          >
-            {autoScrollEnabled ? 'AUTO-SCROLL ON' : 'AUTO-SCROLL OFF'}
-          </button>
         </div>
       </div>
 
-      {/* Embedded YouTube Backup Track Player */}
-      <div style={{ marginBottom: '20px', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
-        <div id="yt-player"></div>
-        {/* If user is not Host/Admin, block touch interactions so they follow the host */}
-        {!onToggleScroll && (
-          <div style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            zIndex: 5,
-            cursor: 'not-allowed'
-          }}></div>
+      {/* LYRICS */}
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '0 5vw',
+          scrollBehavior: 'smooth',
+          msOverflowStyle: 'none',
+          scrollbarWidth: 'none',
+        }}
+      >
+        {lines.length === 0 ? (
+          <div style={{ color: '#333', fontWeight: 'bold', fontSize: '1rem', textTransform: 'uppercase', textAlign: 'center', paddingTop: '40vh' }}>
+            Nessun testo disponibile per questo brano.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingTop: '40vh', paddingBottom: '50vh' }}>
+            {lines.map(ln => {
+              const isActive = activeId === ln.id;
+              const isPast = ln.end < elapsed;
+              const hasChords = ln.segments.some(s => s.chord);
+
+              return (
+                <div
+                  key={ln.id}
+                  ref={isActive ? activeRef : null}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%',
+                    transition: 'opacity 0.3s ease, transform 0.3s ease',
+                    opacity: isActive ? 1 : isPast ? 0.15 : 0.35,
+                    transform: isActive ? 'scale(1)' : 'scale(0.97)',
+                  }}
+                >
+                  {/* Chords row */}
+                  {hasChords && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', marginBottom: '8px' }}>
+                      {ln.segments.map((seg, i) =>
+                        seg.chord ? (
+                          <span
+                            key={i}
+                            onClick={() => setSelectedChord(seg.chord)}
+                            style={{
+                              fontFamily: 'monospace', fontWeight: 'bold', textTransform: 'uppercase',
+                              fontSize: isActive ? '1.1rem' : '0.8rem',
+                              color: isActive ? '#FFD700' : 'rgba(100,180,255,0.6)',
+                              background: isActive ? 'rgba(255,215,0,0.1)' : 'transparent',
+                              borderRadius: '4px', padding: '1px 7px',
+                              border: isActive ? '1px solid rgba(255,215,0,0.3)' : '1px solid rgba(100,180,255,0.2)',
+                              cursor: 'pointer', transition: 'all 0.2s ease',
+                            }}
+                          >{seg.chord}</span>
+                        ) : null
+                      )}
+                    </div>
+                  )}
+
+                  {/* Lyrics text */}
+                  <div style={{
+                    fontSize: isActive ? 'clamp(1.8rem, 5vw, 3rem)' : 'clamp(1rem, 3vw, 1.6rem)',
+                    fontWeight: isActive ? '900' : '300',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,0.5)',
+                    textAlign: 'center', lineHeight: 1.3,
+                    transition: 'font-size 0.3s ease, font-weight 0.3s ease',
+                    letterSpacing: isActive ? '0.02em' : '0',
+                  }}>
+                    {ln.segments.map((seg, i) => <span key={i}>{seg.text}</span>)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
-      {/* Lyrics Body */}
-      <div 
-        ref={containerRef}
-        style={{
-          height: '45vh',
-          maxHeight: '450px',
-          overflowY: 'auto',
-          padding: '0px',
-          border: 'none',
-          backgroundColor: 'transparent',
-          color: 'var(--white)',
-          scrollBehavior: 'smooth',
-          position: 'relative'
-        }}
-      >
-        {lines.map((line, idx) => {
-          const isActive = idx === activeIndex;
-          return (
-            <div 
-              key={idx}
-              ref={isActive ? activeLineRef : null}
+      {/* BOTTOM CONTROL BAR */}
+      <div style={{
+        flexShrink: 0,
+        background: 'rgba(0,0,0,0.9)',
+        borderTop: '1px solid #1a1a1a',
+        padding: '10px 16px',
+        display: 'flex', flexDirection: 'column', gap: '8px',
+        backdropFilter: 'blur(10px)',
+      }}>
+        {/* Progress bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#555', minWidth: '36px' }}>{fmt(elapsed)}</span>
+          <input
+            type="range" min="0" max={total || 100} step="0.1" value={elapsed}
+            onChange={e => {
+              const v = parseFloat(e.target.value);
+              setElapsed(v); pauseRef.current = v;
+              if (playing) startRef.current = performance.now() - v * 1000;
+              broadcast(v, playing);
+            }}
+            disabled={!asHost}
+            style={{ flex: 1, cursor: asHost ? 'pointer' : 'default', accentColor: '#3388ff' }}
+          />
+          <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#555', minWidth: '36px', textAlign: 'right' }}>{fmt(total)}</span>
+        </div>
+
+        {/* Buttons row */}
+        {asHost ? (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
+            <button onClick={stop}
+              style={{ background: 'none', border: '1px solid #333', color: '#555', padding: '6px 14px', fontSize: '0.8rem', cursor: 'pointer', borderRadius: '20px' }}>
+              Reset
+            </button>
+            <button onClick={togglePlay}
               style={{
-                padding: '14px 12px',
-                backgroundColor: isActive ? 'var(--bauhaus-yellow)' : 'transparent',
-                color: isActive ? 'black' : 'var(--white)',
-                transition: 'all 0.15s ease',
-                borderLeft: isActive ? '6px solid var(--bauhaus-blue)' : 'none',
-                marginBottom: '10px'
+                background: playing ? '#fff' : '#3388ff', border: 'none',
+                color: playing ? '#000' : '#fff',
+                padding: '10px 32px', fontSize: '1rem', cursor: 'pointer', borderRadius: '30px',
+                fontWeight: '700', minWidth: '100px',
+              }}>
+              {playing ? 'Pausa' : 'Avvia'}
+            </button>
+            <label htmlFor="lrc-upload-fs"
+              style={{ background: 'none', border: '1px solid #333', color: '#555', padding: '6px 14px', fontSize: '0.75rem', cursor: 'pointer', borderRadius: '20px' }}>
+              Carica file
+            </label>
+            <input type="file" accept=".txt,.lrc" id="lrc-upload-fs" style={{ display: 'none' }}
+              onChange={e => {
+                const f = e.target.files[0]; if (!f) return;
+                const r = new FileReader();
+                r.onload = ev => { const parsed = parseLrc(ev.target.result); if (parsed.length > 0) { setLines(parsed); stop(); } };
+                r.readAsText(f);
               }}
-            >
-              {renderParsedChordsAndLyrics(line.text, isActive)}
-            </div>
-          );
-        })}
+            />
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', fontSize: '0.75rem', color: '#555', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Sincronizzato con l'Host
+          </div>
+        )}
       </div>
 
-      {/* Guitar Chord Info Floating Overlay Card (Compact and non-blocking) */}
-      {activeChord && (() => {
-        const cleanKey = getCleanChordKey(activeChord);
-        const diag = CHORD_DIAGRAMS[cleanKey];
-        return (
-          <div style={{
-            position: 'absolute',
-            bottom: '10px',
-            right: '10px',
-            backgroundColor: '#000000',
-            border: '2px solid var(--white)',
-            padding: '14px',
-            width: '160px',
-            textAlign: 'center',
-            zIndex: 99,
-            boxShadow: '0px 4px 10px rgba(0,0,0,0.8)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--bauhaus-yellow)' }}>{activeChord.toUpperCase()}</span>
-              <button 
-                onClick={() => setActiveChord(null)} 
-                style={{ background: 'none', border: 'none', color: 'var(--bauhaus-red)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
-              >
-                ✕
-              </button>
-            </div>
-            
-            {diag ? (
-              <svg viewBox="0 0 120 130" width="100" height="110" style={{ margin: '0 auto', display: 'block' }}>
-                <line x1="20" y1="20" x2="100" y2="20" stroke="var(--white)" strokeWidth="3" />
-                {[36, 52, 68, 84, 100, 116].map((y, fIdx) => (
-                  <line key={fIdx} x1="20" y1={y} x2="100" y2={y} stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-                ))}
-                {[1, 2, 3, 4, 5].map((f, fIdx) => (
-                  <text key={fIdx} x="8" y={15 + fIdx * 16 + 13} fill="var(--charcoal)" fontSize="7" fontFamily="monospace">{f}</text>
-                ))}
-                {[20, 36, 52, 68, 84, 100].map((x, sIdx) => (
-                  <line key={sIdx} x1={x} y1="20" x2={x} y2="116" stroke="var(--white)" strokeWidth={1} />
-                ))}
-                {[20, 36, 52, 68, 84, 100].map((x, sIdx) => {
-                  const stringNum = sIdx + 1;
-                  if (diag.muted?.includes(stringNum)) {
-                    return <text key={sIdx} x={x - 2.5} y="12" fill="var(--bauhaus-red)" fontSize="8" fontWeight="bold">X</text>;
-                  }
-                  if (diag.open?.includes(stringNum)) {
-                    return <circle key={sIdx} cx={x} cy="10" r="2" fill="none" stroke="var(--white)" strokeWidth="1" />;
-                  }
-                  return null;
-                })}
-                {diag.frets.map((f, dIdx) => {
-                  const x = 20 + (f.s - 1) * 16;
-                  const y = 20 + (f.f - 1) * 16 + 8;
-                  return <circle key={dIdx} cx={x} cy={y} r="4.5" fill="var(--bauhaus-blue)" stroke="var(--white)" strokeWidth="1" />;
-                })}
-              </svg>
-            ) : (
-              <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>Non disponibile</span>
-            )}
+      {/* CHORD DIAGRAM POPUP */}
+      {selectedChord && (
+        <div
+          onClick={() => setSelectedChord(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: '#0e0e0e', border: '1px solid #222', borderRadius: '10px', boxShadow: '0 4px 24px rgba(0,0,0,0.7)', minWidth: '140px' }}>
+            <ChordDiagram name={selectedChord} />
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
